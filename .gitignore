@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+.venv/
+venv/
+
+# Demo 运行产生的检查点/临时文件
+checkpoint.json
+*_checkpoint.json
