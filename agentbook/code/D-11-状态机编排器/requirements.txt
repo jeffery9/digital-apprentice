@@ -1,2 +1,0 @@
-# D-11 状态机编排器 —— 零第三方依赖（标准库；mock 模式不触网）
-# Python >= 3.11；离线运行：python orchestrator.py --mock
