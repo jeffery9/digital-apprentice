@@ -64,6 +64,25 @@ python3 prepub_check.py
 
 执行四类终检（断链 / 编号 / 引号 / 表格）+ 出版就绪核对，报告落盘至 `book/见习生工位/台账/`。
 
+### 发布网页版电子书（GitHub Pages）
+
+```bash
+pip install markdown pillow          # 一次性依赖
+python3 book/build_web_book.py       # 构建静态站点 → docs/
+python3 book/build_web_book.py --serve   # 构建并本地预览（http://localhost:8080）
+```
+
+脚本复用 `assemble_book.py` 的成书顺序与清理规则，把全书渲染为 `docs/` 下的静态
+HTML（分篇阅读 + 单页全书 + 纯前端全文搜索），并把引用的插画压缩为 JPEG 副本
+（原图约 174MB，压缩后 docs/ 约 17MB，适合放 GitHub；源文件只读不改）。
+
+发布步骤：
+1. 提交并推送本仓库到 GitHub；
+2. 仓库 Settings → Pages → Source 选择分支 `main`、目录 `/docs`；
+3. 访问 `https://<用户名>.github.io/<仓库名>/` 即为在线电子书。
+
+改稿后重新运行构建脚本并提交 `docs/` 即可同步更新线上版本。
+
 ## 维护纪律（改稿必读）
 
 1. **先读权威文件**：动 `书稿/` 前先读 `书稿/00_书稿进度.md` §四写作约定与 §五剩余工作；
