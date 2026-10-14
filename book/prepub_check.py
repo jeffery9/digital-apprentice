@@ -67,7 +67,7 @@ rep('PASS' if same else 'FAIL', 'A2', f'版本号四处一致: {vers}' if same e
 
 h1 = [p for p in doc.paragraphs if p.style.name == 'Heading 1']
 toc_ps = [p for p in doc.paragraphs if p.style.name.startswith('TOC')]
-rep('PASS' if len(h1) == 27 else 'WARN', 'A3', f'docx H1＝{len(h1)}（期望 27：书名页1+前言1+篇扉页3+章15+附录6+后记1）')
+rep('PASS' if len(h1) == 28 else 'WARN', 'A3', f'docx H1＝{len(h1)}（期望 28：书名页1+前言1+篇扉页3+章15+附录7+后记1）')
 rep('INFO', 'A4', f'docx 静态目录条目＝{len(toc_ps)}')
 
 # ══════════════════════════════════════════════════════════════
@@ -172,10 +172,10 @@ rep('PASS' if not bad_appx else 'FAIL', 'B6b',
 
 # B7 章号与附录号引用
 bad_ch = sorted(set(int(n) for n in re.findall(r'第 ?(\d{1,2}) ?章', md)) - set(range(1, 16)))
-apx_refs = set(re.findall(r'附录 ?([A-F])', md))
-bad_apx = sorted(apx_refs - set('ABCDEF'))
+apx_refs = set(re.findall(r'附录 ?([A-G])', md))
+bad_apx = sorted(apx_refs - set('ABCDEFG'))
 rep('PASS' if not bad_ch else 'FAIL', 'B7a', '章号引用均在 1–15 范围' if not bad_ch else f'越界章号: {bad_ch}')
-rep('PASS' if not bad_apx else 'FAIL', 'B7b', f'附录引用 {sorted(apx_refs)} 均在 A–F' if not bad_apx else f'未知附录: {bad_apx}')
+rep('PASS' if not bad_apx else 'FAIL', 'B7b', f'附录引用 {sorted(apx_refs)} 均在 A–G' if not bad_apx else f'未知附录: {bad_apx}')
 
 # ══════════════════════════════════════════════════════════════
 # C. 第②类：编号完整性

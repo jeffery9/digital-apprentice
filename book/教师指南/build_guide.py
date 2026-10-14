@@ -27,7 +27,7 @@ import sys
 import pypandoc
 from docx import Document
 
-GUIDE_VERSION = 'v1.0'          # 教师指南自身版本，与主书版本号无关
+GUIDE_VERSION = 'v1.0.2'          # 教师指南自身版本，与主书版本号无关
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOOK_DIR = os.path.dirname(HERE)
 SRC_MD = os.path.join(HERE, '教师指南_源稿.md')

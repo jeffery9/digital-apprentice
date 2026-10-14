@@ -5,7 +5,7 @@
 =========================================
 
 功能：
-  1. 按成书顺序组装 23 个书稿 markdown 文件（前言 + 三篇扉页 + 15 章 + 附录 A–F + 后记），
+  1. 按成书顺序组装 24 个书稿 markdown 文件（前言 + 三篇扉页 + 15 章 + 附录 A–G + 后记），
      插入篇扉页（H1 篇名 + 扉页底稿图），清理草稿注释行，重写图片相对路径，
      输出单一合并版 markdown：输出/《数字见习生》全书稿_合并版.md
   2. 定制中文排版样式模板（reference.docx：宋体正文/黑体标题/楷体引用块、A4、1.5 倍行距、
@@ -56,7 +56,7 @@ from docx.shared import Cm, Pt, RGBColor
 BOOK_DIR   = os.path.dirname(os.path.abspath(__file__))          # /home/user/book
 SRC_DIR    = os.path.join(BOOK_DIR, '书稿')                       # 书稿源目录（只读）
 ILLUST_DIR = os.path.join(SRC_DIR, '插画')
-VERSION    = 'v0.8j'                                              # 与 00_书稿进度.md 同步
+VERSION    = 'v0.8k'                                              # 与 00_书稿进度.md 同步
 
 # 成书顺序：('file', 文件名) 或 ('part', 篇标题, 扉页图文件名)
 # 说明：第 7 章文件内含"第二篇使用指南"，组装时跳过其首部元标题（见 SPECIAL_RULES）。
@@ -86,6 +86,7 @@ BOOK_ORDER = [
     ('file', '附录D_延伸阅读.md'),
     ('file', '附录E_教学使用建议.md'),
     ('file', '附录F_实验指南与记录表.md'),
+    ('file', '附录G_大模型常识与谈资.md'),
     ('file', '后记.md'),
 ]
 
