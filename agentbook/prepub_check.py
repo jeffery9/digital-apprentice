@@ -38,7 +38,9 @@ EXPECT_CHAPTERS = 20
 EXPECT_PATTERN_CARDS = 55          # 去重后独立卡数（对外口径）
 EXPECT_DEMOS = 20                  # D-01 … D-20
 CHAPTER_WORD_CAP = 12000           # 每章上限 1.2 万字
-# 各章目标字数（策划案§六章节总表）；超目标 115% 即 Z0 告警
+# 各章目标字数（策划案§六章节总表）；Z0 告警口径（作者指示 2026-10-14）：
+# **字数偏差只能多不能少**——低于目标 85%（偏少 >15%）为 FAIL（须扩写）；
+# 高于目标 115% 仅 WARN（登记即可，不要求减字）。
 EXPECT_WORDS = {1: 9000, 2: 9000, 3: 9000, 4: 11000, 5: 10000, 6: 10000, 7: 9000,
                 8: 9000, 9: 8000, 10: 10000, 11: 10000, 12: 9000, 13: 10000,
                 14: 9000, 15: 9000, 16: 10000, 17: 10000, 18: 9000, 19: 8000, 20: 10000}
@@ -313,9 +315,12 @@ rep('PASS' if not unknown else 'FAIL', 'C5b',
 # ══════════════════════════════════════════════════════════════
 print('\n═══ D. 事实纪律与时效锚点 ═══')
 all_txt = '\n'.join(read(os.path.join(SRC, f)) or '' for f in present)
-anchors = re.findall(r'【时效锚点｜截至\s*(\d{4})-(\d{2})】', all_txt)
+# 格式口径（QWEN.md §七）：主干必须是【时效锚点｜截至 YYYY-MM】，
+# 允许在日期之后追加备注子句（「，…」或「， 」引导），备注不得吞掉日期。
+ANCHOR_OK = re.compile(r'【时效锚点｜截至\s*\d{4}-\d{2}(?:，[^】]*)?】')
+anchors = re.findall(ANCHOR_OK, all_txt)
 bad_anchor = [a for a in re.findall(r'【时效锚点[^】]*】', all_txt)
-              if not re.match(r'【时效锚点｜截至\s*\d{4}-\d{2}】$', a)]
+              if not ANCHOR_OK.fullmatch(a)]
 rep('PASS' if anchors and not bad_anchor else ('WARN' if not anchors else 'FAIL'), 'D1',
     f'L3 时效锚点 {len(anchors)} 处，格式全部合规' if anchors and not bad_anchor
     else (f'格式不合规 → {bad_anchor[:4]}' if bad_anchor else '未发现时效锚点'),
@@ -483,16 +488,25 @@ else:
 
 # ══════════════════════════════════════════════════════════════
 print('\n═══ 体量监控 ═══')
-over_target = []
+over_target = []   # 偏多 >15%：WARN（登记即可，不减字）
+under_target = []  # 偏少 >15%：FAIL（只能多不能少——须扩写补齐）
 for f in ch_files:
     n = int(re.search(r'第(\d{2})章', f).group(1))
     wc = cn_chars(read(os.path.join(SRC, f)))
     tgt = EXPECT_WORDS.get(n, 9500)
-    if wc > tgt * 1.15:
+    if wc < tgt * 0.85:
+        under_target.append(f'第{n}章 {wc:,}/{tgt:,}({(wc/tgt-1)*100:+.0f}%)')
+    elif wc > tgt * 1.15:
         over_target.append(f'第{n}章 {wc:,}/{tgt:,}(+{(wc/tgt-1)*100:.0f}%)')
-rep('PASS' if not over_target else 'WARN', 'Z0',
-    '各章字数在策划案目标 ±15% 内' if not over_target else '超出目标 15% → ' + '；'.join(over_target),
-    '超目标章须在进度表§四登记偏差与理由；连续两章超标即触发减字复审')
+if under_target:
+    rep('FAIL', 'Z0', '字数偏少超 15%，违反"只能多不能少" → ' + '；'.join(under_target),
+        '作者指示：偏差只能多不能少。偏少章须列入扩写清单补至目标 85% 以上；不设减字要求')
+elif over_target:
+    rep('WARN', 'Z0', '超出目标 15%（允许，只多不少）→ ' + '；'.join(over_target),
+        '超目标章须在进度表§四登记偏差与理由；偏多不触发减字复审')
+else:
+    rep('PASS', 'Z0', '各章字数达标（≥目标 85%；偏差只允许多、不允许少）',
+        '低于目标 85% 即 FAIL；超目标 115% 仅 WARN 登记')
 body = sum(cn_chars(read(os.path.join(SRC, f)) or '') for f in ch_files)
 front = sum(cn_chars(read(os.path.join(SRC, f)) or '') for f in present if f not in ch_files)
 avg = body / len(ch_files) if ch_files else 0
@@ -512,6 +526,64 @@ rep('PASS' if proj <= 240000 else 'WARN', 'Z1',
     + (f'；均摊口径 {proj_flat/10000:.1f} 万' if len(written_actual) >= 4 else '')
     + f'（目标 21.2 万，红线 24 万）',
     '外推 >24 万字须上报作者，触发§十二第 2 项精简或分册退路（QWEN.md §十）')
+
+# ══════════════════════════════════════════════════════════════
+# Z2 Markdown×中文排版（依据《中文文案排版指北》本书采用版 §一.4／§二.5）
+#   A 类：成对 ** 标记与中文正文之间夹空格 → CommonMark 不构成加粗，页面露裸星号；
+#   B 类：闭合 ** 前是全角句末点号、且其后紧跟非空白 → flanking 歧义，整对加粗失效。
+#   （B 类点号集含全角问号：python-markdown 3.x 实测 “…**？**汉字” 同样不渲染。）
+#   代码围栏与行内代码内容跳过（与 book/fix_md_spacing.py 同口径）。
+#   修复：python3 ../book/fix_md_spacing.py 书稿/*.md --fix（或按本脚本报告人工移动点号）。
+print('\n═══ Markdown×中文排版（Z2）═══')
+_CJK_Z2 = ('\u4e00-\u9fff\u3000-\u303f\uff01-\uff5e'
+           '\u2018\u2019\u201c\u201d\u2014\u2026')
+_DOT_Z2 = '。！？；：，、？'
+_SP_Z2 = ' \u3000'
+
+def _strip_protected_z2(text):
+    out = list(text)
+    def blank(s, e):
+        for i in range(s, e):
+            if out[i] != '\n':
+                out[i] = ' '
+    for m in re.finditer(r'(?:^|\n)(```|~~~).*?(?:\1(?:\n|$)|\Z)', text, flags=re.S):
+        blank(m.start(), m.end())
+    for m in re.finditer(r'`[^`\n]*`', text):
+        blank(m.start(), m.end())
+    return ''.join(out)
+
+def _z2_issues(masked):
+    marks = [m.start() for m in re.finditer(r'\*\*(?!\*)', masked)]
+    issues = []
+    for i in range(0, len(marks) - 1, 2):
+        o, c = marks[i], marks[i + 1]
+        if c > 0 and masked[c - 1] in _DOT_Z2 and (c + 2 < len(masked) and not masked[c + 2].isspace()):
+            issues.append((c - 1, '标点闭合歧义'))
+            continue
+        mo = re.match(r'\*\*[' + _SP_Z2 + r']+(?=[' + _CJK_Z2 + r'])', masked[o:])
+        if mo:
+            issues.append((o, '开侧空格'))
+        j = c
+        while j > o + 2 and masked[j - 1] == ' ':
+            j -= 1
+        if j < c and masked[j - 1] in _CJK_Z2 + '”' and '\n' not in masked[j:c]:
+            issues.append((j, '闭侧空格'))
+    return issues
+
+z2_hits = []
+for f in sorted(os.listdir(SRC)):
+    if not f.endswith('.md'):
+        continue
+    txt = read(os.path.join(SRC, f)) or ''
+    masked = _strip_protected_z2(txt)
+    for pos, kind in _z2_issues(masked):
+        ln = txt.count('\n', 0, pos) + 1
+        z2_hits.append(f'{f}:L{ln}[{kind}]')
+rep('PASS' if not z2_hits else 'FAIL', 'Z2',
+    'Markdown 强调标记×中文标点排版全部合规（指北 §一.4／§二.5）' if not z2_hits
+    else f'Markdown 标记×中文标点问题 {len(z2_hits)} 处 → ' + '；'.join(z2_hits[:8])
+         + ('…' if len(z2_hits) > 8 else ''),
+    '运行 python3 book/fix_md_spacing.py --fix（A 类删标记旁空格；B 类把句末点号移到闭合 ** 之外）')
 
 # ── 汇总与落盘 ──────────────────────────────────────────────
 cnt = Counter(r['level'] for r in results)
