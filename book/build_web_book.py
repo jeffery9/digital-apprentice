@@ -77,13 +77,27 @@ def log(msg):
 # Markdown → HTML
 # ----------------------------------------------------------------------------
 def preprocess_markdown(text):
-    """图片路径 插画/x.png → images/x.jpg；行首全角空格转 &nbsp; 防折叠。"""
+    """图片路径 插画/x.png → images/x.jpg；行首全角空格转 &nbsp; 防折叠；
+    表单类引用块行尾补硬换行（两个空格），防止字段行被渲染器合并成一段；
+    粗体 **…** 预转换，规避 CommonMark 在闭合 ** 后紧跟中文/标点时不识别 strong 的问题。"""
     def _img(m):
         alt, path = m.group(1), m.group(2)
         fname = path.split('/')[-1]
         return '![%s](images/%s)' % (alt, image_target_name(fname))
     text = re.sub(r'^!\[([^\]]*)\]\(([^)]+)\)', _img, text, flags=re.M)
     text = re.sub(r'^(　+)', lambda m: '&nbsp;' * len(m.group(1)), text, flags=re.M)
+    # 引用块内非空、非纯标记行补行尾双空格（Markdown 硬换行），保证表单逐行显示
+    lines = []
+    for ln in text.split('\n'):
+        if ln.startswith('>') and not ln.rstrip().endswith(('  ', '\\')):
+            inner = ln.lstrip('> ').rstrip()
+            if inner and inner not in ('-', '---', '***') and not inner.startswith('|'):
+                ln = ln.rstrip() + '  '
+        lines.append(ln)
+    text = '\n'.join(lines)
+    # 粗体预转换：源稿约定 ** 内不含斜体星号，故 [^*]+? 配对安全；
+    # 奇数残留的孤立 ** 保持原样，交由 prepub_check 报告。
+    text = re.sub(r'\*\*(?!\s)([^*]+?)\*\*', r'<strong>\1</strong>', text)
     return text
 
 
