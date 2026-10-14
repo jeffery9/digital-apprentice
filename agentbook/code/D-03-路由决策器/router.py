@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import Callable, Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "D-04-模型网关与快照钉扎"))
 from gateway import ROUTING_TABLE  # noqa: E402  复用 D-04 的调用点定义（4.7 的实验对象）
 
 Tier = Literal["small", "mid", "flagship"]

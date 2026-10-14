@@ -12,6 +12,8 @@ llm.py — 全书 demo 共用的模型薄适配层（framework-agnostic / vendor
   · **模型快照固定（snapshot pinning）**：能力画像与请求都锁定到具体快照 ID，
     而不是 "latest" 一类的浮动别名（第 4 章）。
   · **故障转移钩子**：FailoverLLM 提供熔断与降级，具体策略在第 4 章 D-04 展开。
+  · **网关接缝（gateway 注入）**：`get_llm(..., gateway=gw)` 把调用改道到 `code/gateway.py`
+    ——模型池与 LLM 路由住在那里；不注入时仍是进程内薄适配层（4.4 的演进路径）。
   · **能力画像查询**：`profile(model_id)` 返回结构化画像，是路由的输入、选型的输出、
     回归测试的基线（第 4 章 4.3）。
   · **--mock 离线模式**：MockLLM 用脚本化轨迹替身，无网络、无 API key 可跑通全流程。
@@ -537,14 +539,45 @@ def _parse(data: dict[str, Any], model_id: str) -> Response:
 # ─────────────────────────────────────────────────────────────
 # 5. 工厂：demo 统一入口
 # ─────────────────────────────────────────────────────────────
+class GatewayLLM:
+    """网关客户端形态（第 4 章 4.4 的接缝）：实现 LLM 协议，但自己不直连供应商——
+    每次 chat 都经网关完成 模型池准入 → 合规分区 → LLM 路由 → 快照钉扎 → 熔断/
+    故障转移 → 遥测 这一整串决策。应用侧代码在"适配层阶段"与"网关阶段"之间迁移时，
+    唯一变化就是 get_llm 多传一个 gateway= 参数。"""
+
+    def __init__(self, gateway: Any, call_point: str = "reply", *,
+                 tenant: str = "default", tier: str = "public") -> None:
+        self.gateway, self.call_point = gateway, call_point
+        self.tenant, self.tier = tenant, tier
+
+    @property
+    def model_id(self) -> str:
+        return f"gateway:{self.call_point}"          # 实际模型由路由决定，逐次记录在遥测里
+
+    def chat(self, messages: Sequence[Message], *, tools: Sequence[ToolSpec] | None = None,
+             max_tokens: int = 1024, temperature: float = 0.0,
+             schema: dict[str, Any] | None = None) -> Response:
+        rec = self.gateway.call(self.call_point, list(messages),
+                                tenant=self.tenant, tier=self.tier)   # type: ignore[attr-defined]
+        if rec.get("degraded"):
+            raise LLMError(f"网关降级：{rec.get('reason')}→{rec.get('action')}", status=None)
+        text = rec.get("text") or ""
+        return Response(text, (), Usage(rec.get("tokens", 0), 0),
+                        rec.get("model") or "unknown")
+
+
 def get_llm(model: str | None = None, *, mock: bool = False,
-            fallback: Sequence[str] = ()) -> LLM:
+            fallback: Sequence[str] = (),
+            gateway: Any | None = None, call_point: str = "reply") -> LLM:
     """demo 统一入口。
 
     mock=True          → MockLLM（无网络、无 key）
     mock=False         → OpenAICompatibleLLM；给了 fallback 则包一层 FailoverLLM
     model=None         → 环境变量 LLM_MODEL，否则 mock-flagship-1
+    gateway=gw         → GatewayLLM：调用改道 code/gateway.py（模型池＋LLM 路由基座）
     """
+    if gateway is not None:
+        return GatewayLLM(gateway, call_point)
     model = model or os.environ.get("LLM_MODEL", "mock-flagship-1")
     if mock or os.environ.get("LLM_FORCE_MOCK") == "1":
         return MockLLM(model)
