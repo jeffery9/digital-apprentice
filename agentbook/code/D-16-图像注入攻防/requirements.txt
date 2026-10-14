@@ -1,0 +1,2 @@
+# D-16 图像注入攻防 —— 零第三方依赖（标准库 + ../llm.py 基座 + ../_mockscript.py）
+# Python >= 3.11；离线运行：python attack_defense.py --mock
