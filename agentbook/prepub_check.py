@@ -75,12 +75,17 @@ BANNED = ['革命性', '颠覆性', '赋能', '众所周知', '毋庸置疑', '�
 _ap = argparse.ArgumentParser(description='《AI Agent 架构决策指南》出版前检查（只读）')
 _ap.add_argument('--json', action='store_true', help='额外输出 JSON 结果')
 _ap.add_argument('--strict', action='store_true', help='付印模式：INFO 级也计入告警统计')
+_ap.add_argument('--only', type=lambda s: s.split(','), default=None,
+                 metavar='CODES', help='只输出指定检查码（逗号分隔，如 Z0,D2,B3）')
 _args = _ap.parse_args()
 
 results = []
 
 
 def rep(level, code, msg, fix=''):
+    # --only 过滤：仅保留指定检查码（如 Z0/D2/B3），供扩写/修复迭代时快速复验
+    if _args.only and code.split('b')[0] not in _args.only:
+        return
     results.append({'level': level, 'code': code, 'msg': msg, 'fix': fix})
     mark = {'PASS': '✅', 'FAIL': '❌', 'WARN': '⚠️ ', 'INFO': 'ℹ️ '}[level]
     print(f'{mark}[{code}] {msg}')

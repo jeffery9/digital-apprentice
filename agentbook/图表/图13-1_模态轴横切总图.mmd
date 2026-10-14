@@ -1,0 +1,20 @@
+%% 图 13-1｜模态轴横切总图（第 13 章，与第 14 章共用）
+%% 在图 2-1 五层两轴总图上高亮模态轴：一条虚线带自 L1a 贯穿至 L5，每层标注模态特有决策点。
+flowchart TB
+    subgraph STACK["五层参考架构（模态轴视角放大）"]
+        direction TB
+        L5["L5 治理层<br/>多模态评估（异构判官）· 注入防御（低信任围栏）<br/>语音/图像数据合规（声纹·留存分层）"]
+        L4["L4 编排层<br/>事件驱动 vs 请求-响应 · 流式衔接与打断协议<br/>屏幕-动作循环的验证节拍"]
+        L3["L3 能力层<br/>感知管线位置（OCR/VLM/ASR 谁在前）<br/>computer use 双通道输入 · 输出校验异构"]
+        L2["L2 上下文层<br/>非文本模态的表示与计价（信封尺寸）<br/>模态感知的上下文预算 · IR 契约复用"]
+        L1["L1 模型层<br/>L1a 支持哪些模态（能力矩阵）<br/>L1b 模态驱动的路由（延迟/成本/分区硬约束）"]
+        L5 --- L4 --- L3 --- L2 --- L1
+    end
+
+    MODAL["模态轴（空间维度：信息以什么形式进出）<br/>文本 · 图像 · 文档 · 音频 · 视频 · 屏幕"]
+    MODAL -. "横切：每一层都要回答模态特有决策点" .-> STACK
+
+    classDef layer fill:#fff,stroke:#33475b,stroke-width:1.4px,color:#1a1a1a
+    classDef axis fill:#f2f5f9,stroke:#c0392b,stroke-width:1.6px,color:#1a1a1a,stroke-dasharray:5 3
+    class L5,L4,L3,L2,L1 layer
+    class MODAL axis
