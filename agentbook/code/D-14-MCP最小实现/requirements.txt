@@ -1,0 +1,2 @@
+# D-14 MCP 最小实现 —— 零第三方依赖（标准库 + ../llm.py 基座 + ../_mockscript.py）
+# Python >= 3.11；离线运行：python mcp_min.py --mock

@@ -1,0 +1,2 @@
+# D-06 动态重规划：零第三方依赖（Python 3.11+ 标准库即可）
+# 复用 ../llm.py 与 ../D-01-最小agent循环/agent_loop.py；findings.json/plan_v*.json 为运行产物

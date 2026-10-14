@@ -1,0 +1,12 @@
+# D-01 最小 agent 循环 —— 零第三方依赖
+#
+# 本 demo 刻意不引入任何依赖：模型调用走 ../llm.py 的薄适配层，
+# 该适配层只用标准库（urllib / json / dataclasses）。
+# 这是为了兑现全书的承诺："不绑定商业框架，换供应商只改配置"。
+#
+# Python >= 3.11（用到 X | Y 类型语法与 dataclass slots 行为）
+#
+# 需要真实调用时也不装 SDK：设置 LLM_ENDPOINT / LLM_MODEL / LLM_API_KEY 即可。
+# 若你的供应商不兼容 OpenAI 的 /chat/completions 协议，请在 ../llm.py 里
+# 新增一个适配类（约 40 行），而不是引入该供应商的 SDK —— 这正是第 4 章
+# "网关 vs 应用内薄适配层"讨论的取舍起点。
