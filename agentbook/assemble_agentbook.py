@@ -49,7 +49,7 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, Pt, RGBColor
+from docx.shared import Cm, Emu, Pt, RGBColor
 
 # ----------------------------------------------------------------------------
 # 路径与常量
@@ -198,6 +198,57 @@ def normalize_cn_quotes(text):
     return '\n'.join(out), n_conv, skipped
 
 
+# 单个图位块行：> 【图 X-Y｜图题】导读…｜源文件：图表/….mmd
+# （兼容第 8/9 章"渲染源："变体与无"｜"直接衔接的写法；逐行匹配，勿用 DOTALL——
+#   否则同一引用块内多个 > 续行会被贪婪合并成一次匹配而漏嵌。）
+FIG_LINE_RE = re.compile(
+    r'^[ \t]*>[ \t]*【图[ \t]*(\d+-\d+)[|｜]([^】\n]+)】(.+?)'
+    r'(?:[|｜][ \t]*)?(?:源文件|渲染源)[：:]'
+    r'[ \t]*(图表/[^\s|｜）)]+\.mmd)[ \t]*$', re.M)
+
+
+def embed_figures(text, fig_dir, rel_prefix):
+    """把图位块接线为真实图片引用：【图 X-Y…】→ ![..](../图表/….svg)＋图注行。
+
+    规则（M7 图表嵌入，2026-10-15）：
+      · 逐行匹配 `> 【图 X-Y｜图题】…｜源文件：图表/….mmd`（含第 8/9 章
+        "渲染源："变体、以及第 8/9 章多块共享一个引用块的 `>` 续行形态）；
+      · 派生同名 .svg，**文件存在才接线**；缺 SVG 时保留原图位块并计数告警
+        （维持"渲染前允许缺图"的既有约定）；
+      · 成图为三行：图片引用在前、空行、▲ 图注在后（图注保留 mmd 溯源，
+        B4 检查不破）；引用块内部的 `>` 续行块自动拆为独立图组。
+    返回 (新文本, 嵌入数, 未嵌入清单)。
+    """
+    embedded, pending = [], []
+    seen = set()
+
+    def _repl(m):
+        figno, title, lead, src = (m.group(1), m.group(2).strip(),
+                                   m.group(3), m.group(4))
+        svg_name = os.path.basename(src)[:-len('.mmd')] + '.svg'
+        if not os.path.isfile(os.path.join(fig_dir, svg_name)):
+            pending.append(f'{figno}（缺 {svg_name}）')
+            return m.group(0)
+        if figno in seen:                      # 同编号只嵌一次，其余保留原样
+            pending.append(f'{figno}（重复图位块）')
+            return m.group(0)
+        seen.add(figno)
+        title_clean = title.replace('（全书之锚）', '').strip()
+        lead = lead.strip()
+        if lead:
+            lead = lead.rstrip('。') + '。'
+        cap = (f'> ▲ 图 {figno}｜{title}｜{lead}'
+               f'源文件：{src}（Mermaid 源码可 diff 可再生，出版前交设计重绘）')
+        embedded.append(figno)
+        return (f'![图 {figno} {title_clean}]({rel_prefix}{svg_name})'
+                f'\n\n{cap}')
+
+    out = FIG_LINE_RE.sub(_repl, text)
+    # 共享引用块（第 8/9 章 `>` 续行形态）拆块后残留的孤立 `>` 空引用行：清除
+    out = re.sub(r'\n[ \t]*>[ \t]*(?=\n[ \t]*!\[图 )', '\n', out)
+    return out, len(embedded), pending
+
+
 def rewrite_image_paths(text, old_prefix, new_prefix):
     """重写图片相对路径：](插画/x.png) → ](new/x.png)。"""
     return text.replace(f']({old_prefix}', f']({new_prefix}')
@@ -256,7 +307,8 @@ def assemble_markdown(outdir, keep_notes, cn_quotes=True, final=False):
                  '---\n')
 
     stats = {'files': 0, 'notes_removed': 0, 'images': 0, 'part_pages': 0,
-             'quotes_converted': 0, 'quotes_skipped': [], 'tables_spaced': 0}
+             'quotes_converted': 0, 'quotes_skipped': [], 'tables_spaced': 0,
+             'figures_embedded': 0, 'figures_pending': []}
     rel_illust = '../图表/'               # 合并 md 位于 输出/，图在 图表/
 
     for item in BOOK_ORDER:
@@ -290,6 +342,10 @@ def assemble_markdown(outdir, keep_notes, cn_quotes=True, final=False):
                 stats['quotes_converted'] += nq
                 stats['quotes_skipped'] += skipped
             text = rewrite_image_paths(text, '../图表/', rel_illust)
+            # M7 图表嵌入：图位块 → 真实 SVG 引用（缺 SVG 保留占位并告警）
+            text, n_fig, pend = embed_figures(text, FIG_DIR, rel_illust)
+            stats['figures_embedded'] += n_fig
+            stats['figures_pending'] += [(fname, p) for p in pend]
             parts.append(text.strip('\n') + '\n')
             stats['files'] += 1
 
@@ -340,6 +396,10 @@ def resize_media(md_text, tmpdir, max_side=1600, quality=85):
     for rel in refs:
         src = os.path.normpath(os.path.join(BOOK_DIR, '输出', rel))
         if not os.path.isfile(src):
+            continue
+        # SVG（Mermaid 渲染图）直通：pandoc 原生嵌入矢量图，PIL 无法处理也不需压缩
+        if src.lower().endswith('.svg'):
+            mapping[rel] = src
             continue
         with Image.open(src) as im:
             im.load()
@@ -634,14 +694,24 @@ def postprocess_docx(docx_path, toc=True, toc_depth=2):
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             n_img_c += 1
 
-    # 3) 超宽插图缩放至版心内（等比）
+    # 3) 超宽插图缩放至版心内（等比）；SVG 另设兜底宽（viewBox 无显式尺寸时 pandoc 给默认值）
     cap = Cm(IMG_CAP_CM)
     n_resized = 0
     for sh in doc.inline_shapes:
-        if sh.width and sh.width > cap:
+        if not sh.width or sh.width <= Emu(1):
+            sh.width, sh.height = cap, int(cap * 0.62)   # SVG 无尺寸信息时的兜底
+            n_resized += 1
+            continue
+        if sh.width > cap:
             ratio = cap / sh.width
             sh.height = int(sh.height * ratio)
             sh.width = cap
+            n_resized += 1
+        max_h = Cm(PAGE_H_CM - 2 * MARGIN_TB_CM - 1.5)   # 高图保护：不超一页版心高
+        if sh.height and sh.height > max_h:
+            ratio = max_h / sh.height
+            sh.width = int(sh.width * ratio)
+            sh.height = max_h
             n_resized += 1
 
     # 4) 页脚页码 + 页面 A4（样式模板已设，双保险）
@@ -700,9 +770,13 @@ def main():
     log(f"  ✓ {os.path.basename(md_path)}：{stats['chars']:,} 字符｜"
         f"文件 {stats['files']} 个 + 篇扉页 {stats['part_pages']} 页｜"
         f"图引用 {stats['images']} 处（全部可解析）｜"
+        f"图位块接线嵌入 SVG {stats['figures_embedded']} 幅｜"
         f"清理草稿注释 {stats['notes_removed']} 行"
         + ('（--keep-notes：未清理）' if args.keep_notes else '')
         + ('（--final：含排版说明清理）' if args.final else ''))
+    if stats['figures_pending']:
+        log(f"  ! 未接线图位块 {len(stats['figures_pending'])} 处（保留占位）："
+            + '；'.join(f'{f}:{p}' for f, p in stats['figures_pending'][:8]))
     if not args.no_cn_quotes:
         log(f"  ✓ 中文弯引号规范化：{stats['quotes_converted']} 行；"
             f"奇数引号跳过 {len(stats['quotes_skipped'])} 行")
