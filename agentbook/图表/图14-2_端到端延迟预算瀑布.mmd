@@ -1,0 +1,25 @@
+%% 图 14-2｜实时语音端到端延迟预算瀑布图（第 14 章）
+%% 用户停止说话 → 尾点检测 → ASR 终稿 → LLM 首 token → TTS 首字节 → 播放缓冲；总和逼近 1-1.5 秒。
+%% 数字为截至 2026-10 各厂商公开指标的典型区间【L3 数字】，采用前请复核当期状态。
+flowchart LR
+    T0["t=0<br/>用户停止说话"]
+    T1["尾点检测<br/>~200 - 400ms<br/>超标处置：VAD+语义双判降级"]
+    T2["ASR 终稿<br/>~100 - 300ms<br/>可被 partial 提前吃掉大半"]
+    T3["LLM 首 token<br/>~200 - 500ms<br/>推理模型此项恶化→换更小模型"]
+    T4["TTS 首字节<br/>~150 - 300ms<br/>超标处置：跳过润色直答"]
+    T5["播放缓冲<br/>~100ms"]
+    TE["≈1 - 1.5s<br/>人类沉默容忍上限附近"]
+
+    T0 --> T1 --> T2 --> T3 --> T4 --> T5 --> TE
+
+    NOTE["流式重叠：LLM 不等 ASR 终稿、TTS 不等全文<br/>分段观测上线第一天就要有——否则是黑箱"]
+    T2 -.-> NOTE
+    T3 -.-> NOTE
+    T4 -.-> NOTE
+
+    classDef seg fill:#fff,stroke:#33475b,stroke-width:1.4px,color:#1a1a1a
+    classDef endn fill:#fdf6ec,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a,stroke-dasharray:5 3
+    class T0,T1,T2,T3,T4,T5 seg
+    class TE endn
+    class NOTE note

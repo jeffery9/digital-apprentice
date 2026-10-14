@@ -1,0 +1,12 @@
+{"id": 0, "text": "客户偏好：只接受顺丰发货，月结", "kind": "preference", "salience": 1.0, "created_turn": 0, "last_hit_turn": 0, "dead": false}
+{"id": 1, "text": "订单 T-2201 因破损退款 128 元", "kind": "event", "salience": 0.6, "created_turn": 5, "last_hit_turn": 5, "dead": true}
+{"id": 2, "text": "客户纠正：地址是'文三路'不是'文溪路'", "kind": "fact", "salience": 1.0, "created_turn": 15, "last_hit_turn": 15, "dead": false}
+{"id": 3, "text": "承诺：下周三前寄出替换件", "kind": "event", "salience": 0.9, "created_turn": 20, "last_hit_turn": 20, "dead": false}
+{"id": 4, "text": "客户再次提到月结发票要开公司抬头", "kind": "preference", "salience": 1.0, "created_turn": 30, "last_hit_turn": 30, "dead": false}
+{"id": 5, "text": "临时查询：物流单号 SF33 到哪了", "kind": "event", "salience": 0.6, "created_turn": 35, "last_hit_turn": 80, "dead": true}
+{"id": 6, "text": "客户偏好：只接受顺丰发货，月结", "kind": "preference", "salience": 1.0, "created_turn": 0, "last_hit_turn": 0, "dead": false}
+{"id": 7, "text": "订单 T-2201 因破损退款 128 元", "kind": "event", "salience": 0.6, "created_turn": 5, "last_hit_turn": 5, "dead": true}
+{"id": 8, "text": "客户纠正：地址是'文三路'不是'文溪路'", "kind": "fact", "salience": 1.0, "created_turn": 15, "last_hit_turn": 15, "dead": false}
+{"id": 9, "text": "承诺：下周三前寄出替换件", "kind": "event", "salience": 0.9, "created_turn": 20, "last_hit_turn": 20, "dead": false}
+{"id": 10, "text": "客户再次提到月结发票要开公司抬头", "kind": "preference", "salience": 1.0, "created_turn": 30, "last_hit_turn": 30, "dead": false}
+{"id": 11, "text": "临时查询：物流单号 SF33 到哪了", "kind": "event", "salience": 0.6, "created_turn": 35, "last_hit_turn": 80, "dead": true}
