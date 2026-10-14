@@ -1,9 +1,0 @@
-flowchart LR
-  OPT[optimizer 生成候选] --> VER{verifier<br/>外部验证器<br/>测试/schema/检索核对/判官}
-  VER -- 分数+差异报告 --> FB[修订回路<br/>max_rounds=2 熔断]
-  FB --> OPT
-  VER -- 通过 --> OUT[输出/打检查点<br/>回指15/16章]
-  VER -. 失败批次聚合 .-> COACH[meta-coach<br/>周批提炼]
-  COACH --> PMEM[(程序性记忆/经验库<br/>第8章四格·9.5)]
-  PMEM -.技能检索命中.-> OPT
-  G[Goodhart 作弊风险:<br/>朝度量优化] -.对抗样本+盲评哨兵.-> VER

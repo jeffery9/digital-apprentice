@@ -1,2 +1,0 @@
-# D-12 编排者-工作者 —— 零第三方依赖（标准库 + ../llm.py 基座）
-# Python >= 3.11；离线运行：python d12_isolation.py --mock

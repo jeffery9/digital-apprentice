@@ -1,9 +1,0 @@
-initialize → d14-min v0.1（协议 2025-06-18）
-tools/list →
-   query_order  按订单号查询状态（只读）
-   refund_apply 提交退款申请（写操作，需人工确认门）
-tools/call query_order → {"status": "已签收", "amount": 128.0}
-tools/call refund_apply → {"ticket": "R-001", "note": "已受理，待人工确认"}
-缺参调用被 server 侧拒绝 → KeyError('order_id')（协议层未强制校验＝第 9 章的坑）
-
-观察什么（9.4）：能力发现在协议层完成，agent 不必硬编码工具清单；写操作的确认门挂在 content 语义上；换 server 不改 agent 代码。

@@ -1,2 +1,0 @@
-# D-18 后台长时程任务 —— 零第三方依赖（标准库 + ../llm.py 基座 + ../_mockscript.py）
-# Python >= 3.11；离线运行：python longrun.py --mock

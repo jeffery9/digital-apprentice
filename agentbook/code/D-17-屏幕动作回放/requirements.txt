@@ -1,2 +1,0 @@
-# D-17 屏幕动作回放 —— 零第三方依赖（标准库 + ../llm.py 基座 + ../_mockscript.py）
-# Python >= 3.11；离线运行：python replay.py --mock

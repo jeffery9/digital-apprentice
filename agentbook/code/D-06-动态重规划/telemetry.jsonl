@@ -1,4 +1,0 @@
-{"step": 1, "tool": "get_order", "tokens": 153, "budget_left": 5847}
-{"step": 2, "tool": "get_logistics", "tokens": 213, "budget_left": 5634}
-{"event": "replan", "from_version": 1, "to_version": 2, "replan_count": 1}
-{"step": 3, "tool": "search_history", "tokens": 312, "budget_left": 5322}
