@@ -1,0 +1,2 @@
+# D-04 最小模型网关：零第三方依赖（Python 3.11+ 标准库即可）
+# 真实调用改造时经 code/llm.py（同样零依赖，直调 HTTP 用 urllib/requests 均可）

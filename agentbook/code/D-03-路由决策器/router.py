@@ -62,15 +62,15 @@ def make_tasks(n: int, hard_ratio: float, seed: int) -> list[Task]:
     rng = random.Random(seed)
     easy = ["客户询问物流进度，包裹单号 SF{i}", "新版本是否支持批量导入历史数据",
             "怎么导出上月的工单统计报表", "咨询开通账号的流程与所需材料"]
-    hard = ["客户主张第 {i} 条违约条款并要求赔偿，涉及金额 {i} 万元",
-            "发票金额与合同不符，财务要求本周红冲重开并说明责任归属",
-            "设备故障导致停产，客户提出索赔并要求法务评估逾期责任",
-            "双方对条款解释存在纠纷，需判断赔偿责任与金额上限"]
+    hard_pool = ["客户主张第 {i} 条违约条款并要求赔偿，涉及金额 {i} 万元",
+                 "发票金额与合同不符，财务要求本周红冲重开并说明责任归属",
+                 "设备故障导致停产，客户提出索赔并要求法务评估逾期责任",
+                 "双方对条款解释存在纠纷，需判断赔偿责任与金额上限"]
     out: list[Task] = []
     for i in range(n):
-        hard = rng.random() < hard_ratio
-        pool = hard if hard else easy
-        out.append(Task(rng.choice(pool).format(i=rng.randint(1, 99)), hard))
+        is_hard = rng.random() < hard_ratio
+        pool = hard_pool if is_hard else easy
+        out.append(Task(rng.choice(pool).format(i=rng.randint(1, 99)), is_hard))
     return out
 
 
@@ -162,7 +162,7 @@ def main() -> None:
     ap.add_argument("--judge-recall", type=float, default=0.8, help="判别器抓住困难任务的比例")
     ap.add_argument("--judge-fpr", type=float, default=0.1, help="判别器误升级简单任务的比例")
     ap.add_argument("--first-hop-only", action="store_true", help="跑 4.7 的调用点实验")
-    ap.add_argument("--seed", type=int, default=20261013)
+    ap.add_argument("--seed", type=int, default=20261014)
     args = ap.parse_args()
 
     tasks = make_tasks(args.tasks, args.hard_ratio, args.seed)
