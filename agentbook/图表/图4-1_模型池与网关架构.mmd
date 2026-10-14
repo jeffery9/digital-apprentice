@@ -1,0 +1,46 @@
+%% 图 4-1｜模型池与网关架构（第 4 章之锚）
+%% 要点：语义缓存在路由之前；合规分区做成"候选集过滤器"；遥测是路由改进/成本归因/评估采样的共同数据源
+%% 灰阶：应用与模型池为白底细框，网关七职责为白底粗框，画像库与日志为灰底
+flowchart LR
+    subgraph APPS["应用侧（各自只持薄适配层 llm.py）"]
+        direction TB
+        A1["工单建议 agent"]
+        A2["合同问答 agent"]
+        A3["日志诊断 agent"]
+    end
+
+    subgraph GW["模型网关（唯一入口·跨系统治理）"]
+        direction TB
+        G1["① 单一入口与鉴权（租户·调用点标识）"]
+        G2["② 语义缓存（在路由之前：命中即返回）"]
+        G3["③ 策略层：合规分区＝候选集过滤器 · 配额 · 预算闸"]
+        G4["④ 路由决策：规则 → 语义/分类器 → 级联（分层叠加）"]
+        G5["⑤ 供应商归一化 ＋ 快照钉扎（latest → 固定日期快照）"]
+        G6["⑥ 熔断（关闭/打开/半开）＋ 故障转移候选链"]
+        G7["⑦ 按路由遥测：调用点·候选集·选中模型·缓存·token·延迟·状态·是否降级"]
+        G1 --> G2 --> G3 --> G4 --> G5 --> G6 --> G7
+    end
+
+    subgraph POOL["模型池（准入：无画像不得调用）"]
+        direction TB
+        P1["供应商 A 旗舰（快照 2026-08-12）"]
+        P2["供应商 A 中档（快照 2026-09-02）"]
+        P3["供应商 B 多模态（快照 2026-07-30）"]
+        P4["本地开放权重 SLM（驻留：on-prem）"]
+    end
+
+    PROFILE["能力画像库<br/>model_id·窗口(标称/实测)·模态·工具调用风格·并行·结构化输出·思维链预算·延迟档·价位档·许可·驻留·弃用周期"]
+    LOG["调用日志（JSONL）<br/>成本归因 · 评估采样 · 路由改进的共同数据源"]
+
+    APPS --> GW --> POOL
+    PROFILE -. 路由读 .-> G4
+    G7 -. 写回实测延迟/合法率 .-> PROFILE
+    G7 --> LOG
+    LOG -. 评估集与影子评估 .-> PROFILE
+
+    classDef app fill:#fff,stroke:#33475b,stroke-width:1.1px,color:#1a1a1a
+    classDef gw fill:#fff,stroke:#1a1a1a,stroke-width:1.6px,color:#1a1a1a
+    classDef store fill:#eef1f5,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a,stroke-dasharray:4 3
+    class A1,A2,A3,P1,P2,P3,P4 app
+    class G1,G2,G3,G4,G5,G6,G7 gw
+    class PROFILE,LOG store
