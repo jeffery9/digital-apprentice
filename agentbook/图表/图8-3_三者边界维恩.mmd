@@ -4,8 +4,8 @@ flowchart LR
     RAG[RAG<br/>公共知识·管线写入<br/>无时限]
     CMP[压缩<br/>本会话内·折叠原地<br/>第6章]
   end
-  MEM --- RAG : 谁负责写入?
-  MEM --- CMP : 服务哪个时间尺度?
-  RAG --- CMP : 数据是谁的?
+  MEM ---|"谁负责写入?"| RAG
+  MEM ---|"服务哪个时间尺度?"| CMP
+  RAG ---|"数据是谁的?"| CMP
   SHARED[共享技术栈:<br/>嵌入·切块·混合召回·重排·预算护栏]
   MEM & RAG & CMP --- SHARED
