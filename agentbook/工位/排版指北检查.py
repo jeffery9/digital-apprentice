@@ -74,9 +74,17 @@ KEEP_WORDS = [
 ]
 # 连字符复合英文词整体豁免：code-mode、Self-Refine、plan-then-execute、sub-agent……
 RE_HYPH = re.compile(r'[A-Za-z]+(?:-[A-Za-z0-9]+)+')
+# 代号/编号区间整体豁免：D-15+D-16、M0-M6、T-3、ISO-9001（字母前缀＋数字，可带 -数字/+数字 链）
+RE_CODE_RANGE = re.compile(r'\b[A-Za-z]{1,6}-?\d+(?:[+-]\d+)*')
+# Markdown 水平线整行（--- / *** / ___，可缩进）：版式记号，不参与 R1/R2
+RE_HR = re.compile(r'^\s*(?:-{3,}|\*{3,}|_{3,})\s*$')
+# 命令行记号整体豁免：kill -9、-c、--fix 等 shell flag / POSIX 信号写法，两侧不加空格
+RE_CLI_TOKEN = re.compile(r'(?<![A-Za-z0-9_])-{1,2}[A-Za-z0-9]+(?![A-Za-z0-9])')
 # CJK–拉丁–CJK 混排连字符复合词（步数-token-恢复／准确率-token-延迟）：
 # 三侧均紧贴为本书既定样式；--fix 把残留的"字内空格"归一为紧贴（幂等，不再反复报修）
-RE_MIXED_HYPH = re.compile(r'[\u4e00-\u9fff][A-Za-z0-9]*\s*-\s*(?:[A-Za-z0-9]+\s*-\s*)+[\u4e00-\u9fff]')
+RE_MIXED_HYPH = re.compile(r'[\u4e00-\u9fff][A-Za-z0-9_]*[-/]([A-Za-z0-9_]+[-/])*[A-Za-z0-9_]*[\u4e00-\u9fff]')
+# 文件名扩展名紧贴词尾（总图.mmd、第01章.md）：整体豁免，不在点号处拆空格
+RE_EXT_TAIL = re.compile(r'\.[A-Za-z0-9]{1,6}(?=[\u4e00-\u9fff，。；、：！？）】》”’\s]|$)')
 # 数学式整体豁免：括号配对且含运算符的拉丁式段（如 (1 -(1 -p)^K)），按公式原样保留
 RE_MATHGRP = re.compile(r'\((?:[^()]|\([^()]*\))*\)')
 # 数字区间「200-400ms」：fix 时把 --fix 误插的区间两侧空格收回（区间号与单位保持紧贴）
@@ -194,12 +202,22 @@ def scan_line(line, in_fence, orig=''):
     issues = []
     n = len(line)
     i = 0
+    # Markdown 水平线（---）与表格分隔行（| --- | :--: |）：版式记号，整行不参与任何规则
+    if RE_HR.match(line):
+        return []
+    if '|' in line and re.fullmatch(r'[\s|:\-]+', line):
+        return []
     # token：拉丁/数字串（不含 CJK），用于白名单整体豁免判断
     tokens = [(m.start(), m.end(), m.group(0))
               for m in re.finditer(r'[A-Za-z0-9][A-Za-z0-9.%+\-⁰-⁹ᵃ-ᶻ]*', line)]
     figs = figref_spans(line)
     mixed = mixed_hyphen_spans(line)
     maths = math_spans(line)
+
+    # 表格行：单元格内容短、代号密集，加空格会破坏列对齐且误报率高（本书体例）；
+    # R7 章题检查已在上方循环完成，此处跳过 R1/R2/R3。代码围栏同此提前返回。
+    if in_fence or line.lstrip().startswith('|'):
+        return issues
 
     def keep_span(pos):
         """pos 落在某个白名单 token 内则返回该 token 区间。"""
@@ -227,11 +245,17 @@ def scan_line(line, in_fence, orig=''):
             if j >= n or in_fence:
                 i = j if j > i + 1 else i + 1
                 continue
-            # 豁免①：`…`、`…`／`…`，`…` 行内代码列举（按原稿字符判断）
-            if orig and re.match(r'`[、，]`?', orig[i:i + 4]) and orig[i] == ch:
-                i = j
-                continue
-            # 豁免②：破折号后接行内代码 ——`cmd`／—— `cmd`（保留阅读空格）
+            # 豁免①：`…`、`…`／`…`，`…` 行内代码列举（掩码行中反引号被置空，须在 orig 上匹配）；
+            # 兼容「——`cmd`」破折号变体与全角冒号/句号紧邻行内代码的引导式写法（：`code`、为：`x`。）
+            if orig and ch in '—、，；：':
+                if re.match(r'[—]*`[、，]`?', orig[i:]) or \
+                   re.match(r'[—]*`[^`\n]*`[、，；：]', orig[i:]) or \
+                   re.match(r'[—]*[。！？]\s*`', orig[i:]):
+                    i = j
+                    continue
+            # 豁免②：破折号后接行内代码 ——`cmd`／—— `cmd`（保留阅读空格）；
+            # 推广为"行内代码之后 + 空格 + CJK"整体保留——标识符粘连时拆行会误读
+            # （`工位/` 只放技能卡、`.mmd` 仍是语义真相、`kill -9` shell 记号）
             if orig and ch == '—':
                 k = i
                 while k < len(orig) and orig[k] in SPACE:
@@ -239,6 +263,10 @@ def scan_line(line, in_fence, orig=''):
                 if k < len(orig) and orig[k] == '`':
                     i = j
                     continue
+            if orig and ch in '、，；：' and orig[i] == ch and \
+                    re.match(r'`[^`\n]*`[ ](?=[\u4e00-\u9fff])', orig[i + 1:]):
+                i = j
+                continue
             issues.append((i + 1, j, 'R3', None))
             i = j
             continue
@@ -259,6 +287,15 @@ def scan_line(line, in_fence, orig=''):
             nxt_g = max([e for s, e in maths if s <= i < e] +
                         [e for s, e in maths if s <= i + 1 < e] + [i + 1])
             i = max(i + 1, nxt_g); continue
+        # 命令行记号豁免：shell flag / 信号（kill -9、-c、--fix）两侧不加空格；
+        # 文件名扩展名紧贴词尾（.mmd/.py…）也不在点号前拆空格。
+        # 注意掩码行中 '.'/'-' 的 isalnum() 为 False，须先于 cjk_side 判定检查
+        if ch in CJK and nxt == '-' and RE_CLI_TOKEN.match(line, i + 1):
+            i = RE_CLI_TOKEN.match(line, i + 1).end()
+            continue
+        if ch in CJK and nxt == '.' and RE_EXT_TAIL.match(line, i + 1):
+            i = RE_EXT_TAIL.match(line, i + 1).end()
+            continue
         cjk_side = None
         if ch in CJK and (nxt.isascii() and (nxt.isalnum() or nxt in '.%°')):
             cjk_side = 'left'
