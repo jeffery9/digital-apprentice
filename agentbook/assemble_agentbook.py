@@ -57,7 +57,7 @@ from docx.shared import Cm, Pt, RGBColor
 BOOK_DIR   = os.path.dirname(os.path.abspath(__file__))          # 项目根（agentbook）
 SRC_DIR    = os.path.join(BOOK_DIR, '书稿')                       # 书稿源目录（只读）
 FIG_DIR    = os.path.join(BOOK_DIR, '图表')                       # Mermaid 源 + SVG 导出
-VERSION    = 'v0.4'                                               # 与 书稿/00_进度表.md 同步
+VERSION    = 'v0.5'                                               # 与 书稿/00_进度表.md 同步
 BOOK_TITLE = 'AI Agent 架构决策指南'
 
 
