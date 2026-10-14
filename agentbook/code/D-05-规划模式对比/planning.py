@@ -186,7 +186,12 @@ def run_pe(task: str, tools: dict[str, Tool], *, perturb: bool = False,
         findings.append(f"{item[0]}→{obs}")
         i += 1
     out.tokens = spent
-    out.answer = f"已完成信息收集（计划 v{version}），建议按知识库标准答复客户。"
+    if perturb:
+        # 前提失效路线：合同不含赔付条款 → 结论改走协商顺延（与 findings 一致，不编造）
+        out.answer = ("订单核实延误属实，但该客户合同不含赔付条款——赔付路线不适用；"
+                      "建议按知识库'不可抗力/协商顺延'口径处理，并核对既往同类案例结论。")
+    else:
+        out.answer = f"已完成信息收集（计划 v{version}），建议按知识库标准答复客户。"
     return out
 
 

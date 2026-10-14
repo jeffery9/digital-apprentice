@@ -99,9 +99,10 @@ class Result:
 
 def run_agent(task: str, tools: dict[str, Tool], *, max_steps: int = 8,
               token_budget: int = 48_000, llm: LLM | None = None,
-              use_summarize: bool = True, verbose: bool = True) -> Result:
+              use_summarize: bool = True, verbose: bool = True,
+              system_prompt: str = SYSTEM_PROMPT) -> Result:
     llm = llm or get_llm()                      # 薄适配层：可换供应商，可换 mock
-    ctx: list[Message] = [system(SYSTEM_PROMPT), user(task)]
+    ctx: list[Message] = [system(system_prompt), user(task)]
     spent = 0
     trace: list[dict[str, Any]] = []
 
@@ -178,6 +179,28 @@ DEMO_TASK = ("客户「华东制造」投诉订单 SO-20261013-0087 物流延误
              "请查询相关信息，给出一段给客服人员的处理建议。")
 
 
+# ─────────────────────────────────────────────────────────────
+# 轨迹落盘格式（版本化契约）——D-20（第 18 章）直接消费此文件。
+# 跨章数据接口的形状本身就是 18.6 span schema 的先声：字段只增不改。
+# ─────────────────────────────────────────────────────────────
+TRACE_FORMAT = "agentbook-trace/v1"
+
+
+def trace_document(r: Result, task: str, model_id: str) -> dict[str, Any]:
+    return {"format": TRACE_FORMAT, "task": task, "model": model_id,
+            "status": r.status, "steps": r.steps, "tokens": r.tokens,
+            "answer": r.text, "trace": r.trace,
+            "messages": [{"role": m.role, "content": m.text_only(),
+                          "tool_calls": [c.name for c in m.tool_calls]}
+                         for m in r.context]}
+
+
+def dump_trace(r: Result, task: str, model_id: str, path: str) -> None:
+    from pathlib import Path as _P
+    _P(path).write_text(json.dumps(trace_document(r, task, model_id),
+                                   ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="D-01 最小 agent 循环（第 1 章）")
     ap.add_argument("--mock", action="store_true", help="离线模式：无网络、无 API key")
@@ -216,14 +239,8 @@ def main() -> int:
           f"{400 * n * n + 800 * n:,}（口径不同，只看量级与增长形状）")
 
     if a.dump_trace:
-        Path(a.dump_trace).write_text(
-            json.dumps({"task": a.task, "model": llm.model_id, "status": r.status,
-                        "steps": r.steps, "tokens": r.tokens, "trace": r.trace,
-                        "messages": [{"role": m.role, "content": m.text_only(),
-                                      "tool_calls": [c.name for c in m.tool_calls]}
-                                     for m in r.context]},
-                       ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"轨迹已落盘：{a.dump_trace}")
+        dump_trace(r, a.task, llm.model_id, a.dump_trace)
+        print(f"轨迹已落盘：{a.dump_trace}（格式 {TRACE_FORMAT}，D-20 可直接消费）")
     return 0 if r.status == "done" else 2
 
 
