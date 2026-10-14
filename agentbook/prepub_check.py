@@ -228,6 +228,31 @@ rep('PASS' if not orphan_mmd else 'INFO', 'B4b',
     '无游离 Mermaid 源' if not orphan_mmd
     else f'未被正文引用的 .mmd（属未写章，写完后自动纳入）：{sorted(orphan_mmd)}')
 
+# B5 图表嵌入接线（M7，2026-10-15）：图位块须已接成 ![..](../图表/….svg) 真实引用
+embed_refs = []          # (文件, svg相对路径)
+for f in present:
+    txt = read(os.path.join(SRC, f)) or ''
+    for m in re.finditer(r'^!\[[^\]]*\]\((?:\.\./)?图表/([^\s)]+\.svg)\)', txt, flags=re.M):
+        embed_refs.append((f, m.group(1)))
+svg_files = {x for x in os.listdir(FIG) if x.endswith('.svg')} \
+    if os.path.isdir(FIG) else set()
+miss_svg = sorted({p for _, p in embed_refs} - svg_files)
+unembedded_blocks = []   # 仍为占位形态（【图 X-Y…】且 SVG 已存在 → 应接线而未接）
+for f in present:
+    txt = read(os.path.join(SRC, f)) or ''
+    for m in re.finditer(r'【图\s*(\d+-\d+)｜[^】]*】.*?(?:源文件|渲染源)[：:]\s*(图表/\S+?\.mmd)', txt):
+        derived = os.path.basename(m.group(2)).replace('.mmd', '.svg')
+        if derived in svg_files:
+            unembedded_blocks.append(f'{f}:{m.group(1)}')
+rep('PASS' if not miss_svg else 'FAIL', 'B5',
+    f'图表嵌入：源稿真实图片引用 {len(embed_refs)} 处 ↔ SVG {len(svg_files)} 个'
+    + ('' if not miss_svg else f'；引用了不存在的 SVG → {miss_svg}'),
+    '运行 assemble_agentbook.py 的 embed_figures 接线，或补渲染 图表/*.svg')
+rep('PASS' if not unembedded_blocks else 'WARN', 'B5b',
+    '所有有 SVG 的图位块均已接线' if not unembedded_blocks
+    else f'SVG 已渲染但正文仍为占位图位块（应接线）→ {unembedded_blocks}',
+    '组装时由 embed_figures 自动接线；若单章检查请跑一次合装')
+
 # ══════════════════════════════════════════════════════════════
 print('\n═══ C. 模式卡与交叉引用 ═══')
 card_ledger = read(os.path.join(SRC, '模式卡', '模式卡台账.md'))
