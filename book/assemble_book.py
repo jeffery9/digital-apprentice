@@ -56,7 +56,7 @@ from docx.shared import Cm, Pt, RGBColor
 BOOK_DIR   = os.path.dirname(os.path.abspath(__file__))          # /home/user/book
 SRC_DIR    = os.path.join(BOOK_DIR, '书稿')                       # 书稿源目录（只读）
 ILLUST_DIR = os.path.join(SRC_DIR, '插画')
-VERSION    = 'v0.8k'                                              # 与 00_书稿进度.md 同步
+VERSION    = 'v0.8l'                                              # 与 00_书稿进度.md 同步
 
 # 成书顺序：('file', 文件名) 或 ('part', 篇标题, 扉页图文件名)
 # 说明：第 7 章文件内含"第二篇使用指南"，组装时跳过其首部元标题（见 SPECIAL_RULES）。
