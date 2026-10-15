@@ -101,6 +101,20 @@ def read(path):
         return None
 
 
+def strip_code_fences(text):
+    """把 ``` 围栏代码块整体替换为等行数空行：块内 `#` 注释不是 H1、
+    【…】不是标记实例、【图 X-Y】不是图位块——A4/D1/B5b 均不应在代码内容上判定。
+    保留行数以维持行号语义；非围栏文本逐字不变。"""
+    out, inf = [], False
+    for line in text.splitlines():
+        if line.lstrip().startswith('```'):
+            inf = not inf
+            out.append('')
+            continue
+        out.append('' if inf else line)
+    return '\n'.join(out)
+
+
 def cn_chars(text):
     """正文字数口径：去代码块、去表格分隔行后的中日韩字符＋英文单词数。"""
     t = re.sub(r'```.*?```', '', text, flags=re.S)
@@ -154,11 +168,16 @@ rep('PASS' if same else 'WARN', 'A3',
     f'版本号一致性：{vers}' + ('' if same else '（含未组装项或版本号不一致）'),
     'bump VERSION 后须同步进度表标题并重新组装（QWEN.md §三）')
 
-h1_expect = len(present) + len(bo_parts) + 1     # +1 书名页
+# 书名页在 docx 里是 Title 样式，在合并 md 里只有 YAML `title:` 字段——不计入 H1；
+# 若 md 中出现 `# 《…》` 形态的书名行，则单独计入期望值。
 if merged_md:
-    n_h1 = len(re.findall(r'^# ', merged_md, flags=re.M))
+    # 剥离 ``` 围栏后再数 H1：代码块内的 `# 注释` 行不是标题，不应污染目录口径
+    n_h1 = len(re.findall(r'^# ', strip_code_fences(merged_md), flags=re.M))
+    n_title_line = len(re.findall(r'^# 《', merged_md, flags=re.M))
+    h1_expect = len(present) + len(bo_parts) + n_title_line
     rep('PASS' if n_h1 == h1_expect else 'WARN', 'A4',
-        f'合并版 H1＝{n_h1}（期望 {h1_expect}：书名页1＋部扉页{len(bo_parts)}＋源文件{len(present)}）',
+        f'合并版 H1＝{n_h1}（期望 {h1_expect}：'
+        f'书名页H1 {n_title_line}＋部扉页{len(bo_parts)}＋源文件{len(present)}）',
         '每个源文件应恰好一个 H1（章名），多余 H1 会污染目录')
 else:
     rep('INFO', 'A4', '尚未组装，跳过合并版 H1 检查（先跑 assemble_agentbook.py）')
@@ -237,13 +256,16 @@ for f in present:
 svg_files = {x for x in os.listdir(FIG) if x.endswith('.svg')} \
     if os.path.isdir(FIG) else set()
 miss_svg = sorted({p for _, p in embed_refs} - svg_files)
-unembedded_blocks = []   # 仍为占位形态（【图 X-Y…】且 SVG 已存在 → 应接线而未接）
-for f in present:
-    txt = read(os.path.join(SRC, f)) or ''
-    for m in re.finditer(r'【图\s*(\d+-\d+)｜[^】]*】.*?(?:源文件|渲染源)[：:]\s*(图表/\S+?\.mmd)', txt):
+unembedded_blocks = []   # 合并版中仍为占位形态且 SVG 已存在 → 接线流程漏接（源稿保留占位是 M7 既定约定，不计违规）
+merged_md_path = os.path.join(OUT, '《AI Agent 架构决策指南》全书稿_合并版.md')
+merged_txt = read(merged_md_path)
+if merged_txt:
+    for m in re.finditer(r'【图\s*(\d+-\d+)｜[^】]*】.*?(?:源文件|渲染源)[：:]\s*(图表/\S+?\.mmd)', merged_txt):
         derived = os.path.basename(m.group(2)).replace('.mmd', '.svg')
         if derived in svg_files:
-            unembedded_blocks.append(f'{f}:{m.group(1)}')
+            unembedded_blocks.append(f'合并版:{m.group(1)}')
+else:
+    rep('INFO', 'B5b', '尚未组装合并版，跳过接线检查（先跑 assemble_agentbook.py）')
 rep('PASS' if not miss_svg else 'FAIL', 'B5',
     f'图表嵌入：源稿真实图片引用 {len(embed_refs)} 处 ↔ SVG {len(svg_files)} 个'
     + ('' if not miss_svg else f'；引用了不存在的 SVG → {miss_svg}'),
@@ -344,13 +366,23 @@ rep('PASS' if not unknown else 'FAIL', 'C5b',
 
 # ══════════════════════════════════════════════════════════════
 print('\n═══ D. 事实纪律与时效锚点 ═══')
-all_txt = '\n'.join(read(os.path.join(SRC, f)) or '' for f in present)
+# 扫描口径统一剥离 ``` 围栏：代码内注释/示例形态不参与 D1 锚点格式、D2 覆盖等判定
+all_txt = strip_code_fences('\n'.join(read(os.path.join(SRC, f)) or '' for f in present))
 # 格式口径（QWEN.md §七）：主干必须是【时效锚点｜截至 YYYY-MM】，
 # 允许在日期之后追加备注子句（「，…」或「， 」引导），备注不得吞掉日期。
 ANCHOR_OK = re.compile(r'【时效锚点｜截至\s*\d{4}-\d{2}(?:，[^】]*)?】')
 anchors = re.findall(ANCHOR_OK, all_txt)
-bad_anchor = [a for a in re.findall(r'【时效锚点[^】]*】', all_txt)
-              if not ANCHOR_OK.fullmatch(a)]
+# 记法示例豁免：all_txt 已经 strip_code_fences 剥离 ``` 围栏（围栏内行置空），
+# 故此处命中的均为正文真实实例；被反引号包裹的 `【时效锚点…】` 视为记法介绍而非实例。
+_bad_all = [(m.start(), m.group(0)) for m in re.finditer(r'【时效锚点[^】]*】', all_txt)
+            if not ANCHOR_OK.fullmatch(m.group(0))]
+
+def _is_notation_sample(text_, pos, frag):
+    prev = text_[max(0, pos - 1):pos]
+    nxt = text_[pos + len(frag):pos + len(frag) + 1]
+    return prev == '`' or nxt == '`'
+
+bad_anchor = [g for pos, g in _bad_all if not _is_notation_sample(all_txt, pos, g)]
 rep('PASS' if anchors and not bad_anchor else ('WARN' if not anchors else 'FAIL'), 'D1',
     f'L3 时效锚点 {len(anchors)} 处，格式全部合规' if anchors and not bad_anchor
     else (f'格式不合规 → {bad_anchor[:4]}' if bad_anchor else '未发现时效锚点'),
@@ -376,12 +408,21 @@ for f in present:
 # 章级兜底：全章合规锚点 ≥2 处时，残余命中降级登记（延伸阅读/回指句中的产品名视为已覆盖）
 l3_soft = {f: v for f, v in list(l3_hits.items())
            if len(re.findall(r'【时效锚点｜截至\s*\d{4}-\d{2}', read(os.path.join(SRC, f)) or '')) >= 2}
+# 附录级豁免：附录 A/B/E 是索引/速查/延伸件，不重述事实数字，其 L3 条目均指向正文深挖章锚点小节；
+# 附录 D 本身就是锚点总账（D.3 统一快照基线｜截至 YYYY-MM）。逐处锚点要求对附录不适用（策划案§九口径）。
+l3_appx = {f: v for f, v in list(l3_hits.items()) if re.match(r'^附录[A-Z]', f)}
+for f in l3_appx:
+    del l3_hits[f]
 for f in l3_soft:
     del l3_hits[f]
 rep('PASS' if not l3_hits else 'WARN', 'D2',
     'L3 短效内容均在锚点覆盖范围内' if not l3_hits
     else '疑似无锚点覆盖的 L3 内容 → ' + '；'.join(f'{f}:{sorted(set(v))[:3]}' for f, v in list(l3_hits.items())[:4]),
     '产品格局/基准分数/模型代际属 L3，必须打锚点（策划案§九）')
+if l3_appx:
+    rep('INFO', 'D2c', '附录级豁免（索引/速查件指向正文锚点，不逐处打锚） → '
+        + '；'.join(f'{f}:{sorted(set(v))[:3]}' for f, v in list(l3_appx.items())[:4]),
+        '如编辑要求逐处锚点，可在对应附录条目补【截至 YYYY-MM】')
 if l3_soft:
     rep('INFO', 'D2b', '章级锚点充足，延伸/回指处产品名按章覆盖豁免 → '
         + '；'.join(f'{f}:{sorted(set(v))[:3]}' for f, v in list(l3_soft.items())[:4]),
