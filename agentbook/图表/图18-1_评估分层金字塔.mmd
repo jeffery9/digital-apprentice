@@ -1,0 +1,17 @@
+%% 图 18-1｜评估分层金字塔与建设次序（第 18 章）
+flowchart BT
+    L1["塔基：组件级评估<br/>单测断言·工具契约校验·schema 检查<br/>（最便宜·最快·定位最准）"]
+    L2["塔身：轨迹级评估<br/>规则断言八条起·步数预算·路由归因 span<br/>（评过程：结果对但路径违规也拦）"]
+    L3["塔尖：端到端评估<br/>私有回归集·judge 打分·人工抽样评审<br/>（评结果：贴近用户感知但贵且钝）"]
+    G["CI 门禁三道门<br/>绝对地板线＋相对基线主闸＋安全类一票否决"]
+    P["反模式警示：只建塔尖＝老板看板无牙齿<br/>跳阶段上 judge＝绿灯下质量裸奔"]
+    L1 --> L2 --> L3 --> G
+    P -.-> L3
+    classDef base fill:#eaf3ea,stroke:#3a7d44,color:#1a1a1a
+    classDef mid fill:#fff6e5,stroke:#b07d2a,color:#1a1a1a
+    classDef top fill:#fdeaea,stroke:#c0392b,color:#1a1a1a
+    class L1 base
+    class L2 mid
+    class L3,P top
+    classDef gate fill:#f2f5f9,stroke:#33475b,color:#1a1a1a
+    class G gate
