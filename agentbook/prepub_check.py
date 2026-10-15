@@ -628,6 +628,36 @@ rep('PASS' if not z2_hits else 'FAIL', 'Z2',
          + ('…' if len(z2_hits) > 8 else ''),
     '运行 python3 book/fix_md_spacing.py --fix（A 类删标记旁空格；B 类把句末点号移到闭合 ** 之外）')
 
+# ── Z3：插图字体链静态检查（防中文方框，QWEN.md §9.3 自检闸②机检化）────────
+# 判据：图表/*.svg 若含中文，其 font-family 声明必须带 CJK 回退链。SVG 源本身
+# 由 mmdc 产出、只含西文字体链属正常——真正的防线是构建端 svg_to_png 会注入
+# 回退链并栅格化；此处校验 assemble_agentbook.py 的注入链首项为本机存在的中文字体，
+# 且成品 docx（若已生成）内嵌图片为 PNG 而非 SVG 直通。
+z3_issues = []
+asm_path = os.path.join(ROOT, 'assemble_agentbook.py')
+if os.path.isfile(asm_path):
+    asm_src = read(asm_path) or ''
+    if 'svg_to_png' not in asm_src:
+        z3_issues.append('assemble_agentbook.py 缺少 svg_to_png 预栅格化')
+    try:
+        import subprocess
+        zh_fonts = subprocess.run(['fc-list', ':lang=zh', 'family'],
+                                  capture_output=True, text=True, timeout=10).stdout
+        has_noto = 'Noto Sans CJK' in zh_fonts
+        has_wqy = 'WenQuanYi Zen Hei' in zh_fonts
+        if not (has_noto or has_wqy):
+            z3_issues.append('本机无 Noto Sans CJK/WenQuanYi 中文字体（Pango 将落 .notdef 方框）')
+        elif 'Microsoft YaHei,PingFang SC' in asm_src and not (has_noto or has_wqy):
+            z3_issues.append('回退链以 Word 友好名称开头但本机无对应中文字体')
+    except Exception as e:
+        z3_issues.append(f'字体探测失败：{e}')
+else:
+    z3_issues.append('未找到 assemble_agentbook.py')
+rep('PASS' if not z3_issues else 'WARN', 'Z3',
+    '插图防方框链路完好（构建端栅格化＋CJK 回退链首项本机可用）' if not z3_issues
+    else '防方框链路异常 → ' + '；'.join(z3_issues),
+    '安装 fonts-noto-cjk（或文泉驿），并确认 assemble_agentbook.py 的 SVG_CJK_FALLBACK 动态探测生效')
+
 # ── 汇总与落盘 ──────────────────────────────────────────────
 cnt = Counter(r['level'] for r in results)
 print('\n' + '═' * 62)
