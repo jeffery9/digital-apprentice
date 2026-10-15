@@ -392,11 +392,6 @@ def assemble_markdown(outdir, keep_notes, cn_quotes=True, final=False):
 # 西文字体（如 DejaVu Sans，fc-match 对 "Microsoft YaHei"/"PingFang SC" 的兜底）
 # 排在前面，中文会被渲染成 .notdef 空心方框（docx 插图中文变方框的直接根因）。
 # 因此构建端必须把本机真实存在的中文字体置于链首；末尾仍保留 Word 端友好名称。
-SVG_CJK_FALLBACK = ('Noto Sans CJK SC,Source Han Sans SC,'
-                    'Microsoft YaHei,PingFang SC,'
-                    'WenQuanYi Zen Hei,SimHei,宋体')
-
-
 def _build_cjk_font():
     """返回构建栅格化时使用的 CJK 字体族名（优先 Noto，次选文泉驿）。"""
     try:
@@ -412,7 +407,19 @@ def _build_cjk_font():
     return None
 
 
-SVG_BUILD_CJK_FONT = _build_cjk_font()
+# 回退链首项必须是**本机真实存在**的中文字体（动态探测）：若以 sans-serif 或
+# 不存在的 Noto 开头，Pango 会落到无中文字形的西文字体 → .notdef 空心方框。
+# 末尾仍保留 Word 端友好名称，供 docx 直通场景使用。
+_ZH_HEAD = _build_cjk_font()
+# 去重拼接：本机探测到的首项若已在默认链中出现，则不重复追加
+_DEFAULT_CHAIN = ('Noto Sans CJK SC,Source Han Sans SC,'
+                  'Microsoft YaHei,PingFang SC,'
+                  'WenQuanYi Zen Hei,SimHei,宋体')
+SVG_CJK_FALLBACK = (_ZH_HEAD + ',' + _DEFAULT_CHAIN
+                    if _ZH_HEAD and _ZH_HEAD not in _DEFAULT_CHAIN.split(',')
+                    else _DEFAULT_CHAIN)
+
+SVG_BUILD_CJK_FONT = _ZH_HEAD
 
 
 def _mermaid_fo_to_native_text(text):
