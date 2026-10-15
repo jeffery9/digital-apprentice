@@ -388,8 +388,31 @@ def assemble_markdown(outdir, keep_notes, cn_quotes=True, final=False):
 #   · SVG → 300 DPI PNG 预栅格化（Word 对 SVG 的中文支持缺失，见函数文档）
 #   · 位图 → 长边限 1600px 压缩副本
 # ----------------------------------------------------------------------------
-SVG_CJK_FALLBACK = ('Microsoft YaHei,PingFang SC,Noto Sans CJK SC,'
-                    'Source Han Sans SC,WenQuanYi Zen Hei,SimHei,宋体')
+# 注意：顺序即优先级。Pango（cairosvg 底层）的字体回退不可靠——若把无中文字形的
+# 西文字体（如 DejaVu Sans，fc-match 对 "Microsoft YaHei"/"PingFang SC" 的兜底）
+# 排在前面，中文会被渲染成 .notdef 空心方框（docx 插图中文变方框的直接根因）。
+# 因此构建端必须把本机真实存在的中文字体置于链首；末尾仍保留 Word 端友好名称。
+SVG_CJK_FALLBACK = ('Noto Sans CJK SC,Source Han Sans SC,'
+                    'Microsoft YaHei,PingFang SC,'
+                    'WenQuanYi Zen Hei,SimHei,宋体')
+
+
+def _build_cjk_font():
+    """返回构建栅格化时使用的 CJK 字体族名（优先 Noto，次选文泉驿）。"""
+    try:
+        import subprocess
+        out = subprocess.run(['fc-list', ':lang=zh', 'family'],
+                             capture_output=True, text=True, timeout=10).stdout
+        if 'Noto Sans CJK' in out:
+            return 'Noto Sans CJK SC'
+        if 'WenQuanYi Zen Hei' in out:
+            return 'WenQuanYi Zen Hei'
+    except Exception:
+        pass
+    return None
+
+
+SVG_BUILD_CJK_FONT = _build_cjk_font()
 
 
 def _mermaid_fo_to_native_text(text):
@@ -430,8 +453,10 @@ def _mermaid_fo_to_native_text(text):
         tspans = ''.join('<tspan x="%g" y="%g">%s</tspan>'
                          % (x, y0 + i * lh, _html.escape(ln))
                          for i, ln in enumerate(lines))
+        family = (SVG_BUILD_CJK_FONT + ',' + SVG_CJK_FALLBACK
+                  if SVG_BUILD_CJK_FONT else SVG_CJK_FALLBACK)
         return ('<text font-family="%s" font-size="%g" text-anchor="%s">'
-                '%s</text>' % (SVG_CJK_FALLBACK, fs, anchor, tspans))
+                '%s</text>' % (family, fs, anchor, tspans))
 
     out, n = re.subn(r'<foreignObject([^>]*)>(.*?)</foreignObject>',
                      conv, text, flags=re.S)
