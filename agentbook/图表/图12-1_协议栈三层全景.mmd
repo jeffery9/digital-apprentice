@@ -1,0 +1,22 @@
+%% 图 12-1｜agent 协议栈三层全景（第 12 章）
+flowchart TB
+    subgraph ST[" "]
+        direction TB
+        C["上下文层：AGENTS.md / system prompt card 类<br/>静态描述与运行时注入"]
+        A["互联层：A2A 类<br/>agent↔agent 任务委派与能力发现"]
+        M["工具层：MCP<br/>agent↔工具/数据源"]
+        C --- A --- M
+    end
+    R1["竞争状态：习惯法阶段"]
+    R2["竞争状态：格局未定"]
+    R3["竞争状态：尘埃落定"]
+    SIDE["每一层都有防腐层问题"]
+    C -.-> R1
+    A -.-> R2
+    M -.-> R3
+    SIDE ~~~ C
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class C,A,M col
+    class R1,R2,R3,SIDE note

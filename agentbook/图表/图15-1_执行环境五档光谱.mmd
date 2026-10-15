@@ -1,0 +1,9 @@
+%% 图 15-1｜执行环境五档光谱（第 15 章）
+flowchart LR
+    G1["① 进程内<br/>零开销 / 零隔离<br/>模型生成代码禁入"] --> G2["② 子进程+rlimit<br/>秒级 / 中低隔离"] --> G3["③ 容器<br/>秒至十秒 / 中高<br/>共享内核是天花板"] --> G4["④ gVisor/Firecracker<br/>亚秒至秒 / 高"] --> G5["⑤ 完整VM/云沙箱<br/>分钟级 / 最高"]
+    AXIS["上：隔离强度↑　左下：启动快　右上：能力上限全"]
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class G1,G2,G3,G4,G5 col
+    class AXIS note
