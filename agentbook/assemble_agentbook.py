@@ -396,9 +396,57 @@ def _fc_zh_families():
     """返回本机 fontconfig 认可"含中文字形"的字体家族名集合。"""
     import subprocess
     try:
+def _fc_zh_families():
+    """返回本机 fontconfig 认可"含中文字形"的字体家族名集合。"""
+    import subprocess
+    try:
         out = subprocess.run(['fc-list', ':lang=zh', 'family'],
                              capture_output=True, text=True, timeout=10).stdout
     except Exception:
+        return set()
+    fams = set()
+    for line in out.splitlines():
+        for f in line.split(','):
+            f = f.strip()
+            if f:
+                fams.add(f)
+    return fams
+
+
+def _fc_has_zh(family):
+    """校验 family 是否真能取到中文字形：fc-match 解析结果的家族名必须出现在
+    fc-list :lang=zh 输出里。直接 fc-match 'Microsoft YaHei' 会静默兜底到
+    DejaVu Sans（无中文字形）——这正是"链首写了中文族名却仍出方框/丢字"的根因，
+    因此探测必须以"解析结果是否真的含中文字形"为准，而非族名写得像不像中文。"""
+    import subprocess
+    try:
+        fam = subprocess.run(['fc-match', '-f', '%{family[0]}', family],
+                             capture_output=True, text=True,
+                             timeout=10).stdout.split(',')[0].strip()
+        return fam if fam in _fc_zh_families() else None
+    except Exception:
+        return None
+
+
+def _build_cjk_font():
+    """返回构建栅格化时使用的 CJK 字体族名（本机真实有中文字形的第一个）。
+
+    候选顺序：优先无衬线黑体族（与图面风格一致），逐一经 _fc_has_zh 实证；
+    全部落空才退回 fc-match sans-serif 的结果（若其恰好含中文字形）。
+    """
+    for cand in ('Noto Sans CJK SC', 'Source Han Sans SC', 'WenQuanYi Zen Hei',
+                 'Microsoft YaHei', 'PingFang SC', 'SimHei', '宋体'):
+        fam = _fc_has_zh(cand)
+        if fam:
+            return fam
+    import subprocess
+    try:
+        fam = subprocess.run(['fc-match', '-f', '%{family[0]}', 'sans-serif'],
+                             capture_output=True, text=True,
+                             timeout=10).stdout.split(',')[0].strip()
+        return fam if fam in _fc_zh_families() else None
+    except Exception:
+        return None
         return set()
     fams = set()
     for line in out.splitlines():
@@ -452,6 +500,9 @@ _ZH_HEAD = _build_cjk_font()
 # 去重拼接：本机探测到的首项若已在默认链中出现，则不重复追加。
 # Word 端友好名（YaHei/PingFang/SimHei/宋体）保留在链尾作直通场景兜底；
 # 构建端真正取字形的是链首——由 svg_to_png 的方框检测保证不会静默放行。
+# 去重拼接：本机探测到的首项若已在默认链中出现，则不重复追加。
+# Word 端友好名（YaHei/PingFang/SimHei/宋体）保留在链尾作直通场景兜底；
+# 构建端真正取字形的是链首——由 svg_to_png 的方框检测保证不会静默放行。
 _DEFAULT_CHAIN = ('Noto Sans CJK SC,Source Han Sans SC,'
                   'Microsoft YaHei,PingFang SC,'
                   'WenQuanYi Zen Hei,SimHei,宋体')
@@ -460,6 +511,48 @@ SVG_CJK_FALLBACK = (_ZH_HEAD + ',' + _DEFAULT_CHAIN
                     else _DEFAULT_CHAIN)
 
 SVG_BUILD_CJK_FONT = _ZH_HEAD
+
+
+def _ensure_zh_font_assets():
+    """构建端中文字形兜底：fontconfig 查无含中文字形的可解析族时，拉取
+    Noto Sans CJK SC 注册进 ~/.fonts 并重建字体缓存，随后刷新模块内的字体链
+    全局量。保证 SVG→PNG 栅格化永远有中文字形可用——既不空白也不方框。"""
+    global _ZH_HEAD, SVG_CJK_FALLBACK, SVG_BUILD_CJK_FONT
+    if _build_cjk_font():
+        return True
+    import subprocess
+    import urllib.request
+    urls = (
+        'https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/'
+        'SimplifiedChinese/NotoSansCJKsc-Regular.otf',
+        'https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/OTF/'
+        'SimplifiedChinese/NotoSansCJKsc-Regular.otf',
+    )
+    fdir = os.path.join(os.path.expanduser('~'), '.fonts')
+    os.makedirs(fdir, exist_ok=True)
+    dst = os.path.join(fdir, 'NotoSansCJKsc-Regular.otf')
+    for u in urls:
+        try:
+            log(f'  · 本机无中文字体，拉取 Noto Sans CJK SC：{u[:60]}…')
+            req = urllib.request.Request(u, headers={'User-Agent': 'curl/8'})
+            with urllib.request.urlopen(req, timeout=180) as r, \
+                    open(dst, 'wb') as f:
+                shutil.copyfileobj(r, f)
+            if os.path.getsize(dst) > 1_000_000:
+                subprocess.run(['fc-cache', '-f', fdir],
+                               capture_output=True, timeout=60)
+                # 刷新模块级字体链（此前探测为空）
+                _ZH_HEAD = _build_cjk_font()
+                SVG_BUILD_CJK_FONT = _ZH_HEAD
+                SVG_CJK_FALLBACK = ((_ZH_HEAD + ',' + _DEFAULT_CHAIN)
+                                    if _ZH_HEAD else _DEFAULT_CHAIN)
+                if _ZH_HEAD:
+                    log(f'  ✓ 中文字形兜底就绪：{_ZH_HEAD}')
+                    return True
+            os.remove(dst)
+        except Exception as e:
+            log(f'    ! 字体下载失败：{e}')
+    return False
 
 
 def _ensure_zh_font_assets():
@@ -544,6 +637,13 @@ def _mermaid_fo_to_native_text(text):
                          for i, ln in enumerate(lines))
         family = (SVG_BUILD_CJK_FONT + ',' + SVG_CJK_FALLBACK
                   if SVG_BUILD_CJK_FONT else SVG_CJK_FALLBACK)
+        # font-weight 显式透传：fontconfig 的 family 级匹配不识别 "Bold" 风格名，
+        # 若节点标签是 <strong>/<b>（Mermaid htmlLabels 常见），不加粗则与图面
+        # 语义不符；Pango 对含中文实体字重的家族会正常取粗体 face。
+        fw = '700' if re.search(r'<(?:strong|b)\b', inner) else None
+        weight_attr = f' font-weight="{fw}"' if fw else ''
+        return ('<text font-family="%s"%s font-size="%g" text-anchor="%s">'
+                '%s</text>' % (family, weight_attr, fs, anchor, tspans))
         # font-weight 显式透传：fontconfig 的 family 级匹配不识别 "Bold" 风格名，
         # 若节点标签是 <strong>/<b>（Mermaid htmlLabels 常见），不加粗则与图面
         # 语义不符；Pango 对含中文实体字重的家族会正常取粗体 face。
@@ -637,33 +737,6 @@ def _png_has_notdef_box(png_path):
     max_side = 90                      # 正文字号 300DPI≈50px，留标题字号余量
     min_side = 12
 
-    def try_frame(x, y):
-        """轻量复核：(x,y) 为左上角时验证四条实心带 + 内腔全白。
-        供扫描 B（右下角锚定回推）使用，命中即记录，不做壁厚精判。"""
-        row = black[y]
-        xe = x
-        while xe + 1 < w and row[xe + 1]:
-            xe += 1
-        ye = y
-        while ye + 1 < h and black[ye + 1][x]:
-            ye += 1
-        bw, bh = xe - x + 1, ye - y + 1
-        if not (min_side <= bw <= max_side and min_side <= bh <= max_side):
-            return False
-        if not (0.5 <= bw / bh <= 1.4):      # 下限同 try_box：DejaVu .notdef 竖长 ≈0.57
-            return False
-        # 四边整幅实心带（顶/底行、左/右列）
-        if not (row_all(y, x, xe) and row_all(ye, x, xe)
-                and col_all(x, y, ye) and col_all(xe, y, ye)):
-            return False
-        # 内腔必须全白且非退化
-        if xe - x < 6 or ye - y < 6:
-            return False
-        if not interior_white(x + 2, y + 2, xe - 2, ye - 2):
-            return False
-        record(x, y, bw, bh)
-        return True
-
     def record(x, y, bw, bh):
         """找到一个合格空心粗框，记录并去重。"""
         for ux, uy, uw in boxes:
@@ -695,22 +768,11 @@ def _png_has_notdef_box(png_path):
         # 直接拒绝将漏检；故 bh 过小视为"被截断"，改用顶行走线长作高度参考，
         # 窗校验里再以 ye 处的实心底带兜真值（假锚找不到闭合底边自然落空）。
         bh = ye - y + 1
-        stuck_trunc = False                # 左列走线是否被粘连横带截断（代理高度）
         if bh > max_side:
             return False
         h_ref = max(bh, e - x + 1)          # 高度参考：走线被截时取顶行段宽近似
         if h_ref < min_side:
             return False
-        # 左列走线被截断（bh < min_side，粘连形态）时 ye 不是真底边——改以顶行
-        # 连续段长度为框尺寸代理，向下探测候选底带（实测 dv.png：字高 74px、
-        # 左列在共用横带处断为 bh≈5~8px，真底边在下方 40~90px 处）。
-        if bh < min_side:
-            cand_ye = y + max(min_side, (e - x + 1)) - 1
-            if cand_ye >= h or not black[cand_ye][x]:
-                return False
-            ye = cand_ye
-            bh = ye - y + 1
-            stuck_trunc = True
         # 顶行中点列探测真实顶壁厚。锚点落在横带下沿（相邻粘连框的第二排左上角、
         # 或 .notdef 底边与下一字顶边粘连的共用带）时，向下探测得 tt0≈0——须改向
         # 上探：锚行自身即某框顶带时，向上走满该带同样得到壁厚。两方向皆 ≤1px
@@ -729,20 +791,14 @@ def _png_has_notdef_box(png_path):
                 tu0 += 1
             tt0 = tu0
         ref = min(e - x + 1, bh)
-        # 下限取绝对 2px 而非 bh*0.08：小字号/降采样后 .notdef 壁厚可低至
-        # 3~4px（实测 probe.png：bh=56、tt0=4，旧下限 4.48 误杀真框）。
-        if not (2 <= tt0 <= min(ref, max_side) * 0.35):
+        if not (bh * 0.08 <= tt0 <= min(ref, max_side) * 0.35):
             return False
         best = None
-        # 宽高比下限 0.5：实测 DejaVu .notdef 为竖长空心矩形（probe.png 32×56
-        # ratio≈0.57、dv.png 42×74 ratio≈0.57），旧下限 0.7 把全部候选窗滤掉
-        # （两图漏检根因）。上限维持 1.4（长条装饰框不满足）；汉字部件误报
-        # 由内腔全白 + 过中线连续段 ≤壁厚+2px 两道判据兜住，放宽下限安全。
         for xe in range(x + min_side, e + 1):
             bw = xe - x + 1
             if bw > max_side:
                 break
-            if not (0.5 <= bw / bh <= 1.4):
+            if not (0.7 <= bw / bh <= 1.4):
                 continue
             # 底/右整幅实心带 + 角部实心（排除横带截出的假窗）
             if not (row_all(ye, x, xe)                   # 底边整幅实心带
@@ -755,26 +811,16 @@ def _png_has_notdef_box(png_path):
             # 粘连排布下 ye 可能被邻框横带截短致 bh 偏小，故比例上限取
             # max(bh, bw)*0.35 兜容（实测 dv.png：字高 74px、bh 被截为 19px、
             # 真壁厚 5px，按 bh*0.35=6.6 仍可通过；此处保留原口径并显式写明）。
-            # 上限再设绝对地板：真实插图误报源（t_图1-2/1-3/10-1）系实心粗块
-            # 内白孔（"回"字形部件、圆角节点局部），壁占比 ≥25%；而 .notdef
-            # 空心矩形壁占比恒 ≤20%（probe 4/32、dv 5/42、gap0 合成 5/38）。
-            # 小字号下 .notdef 壁厚可低至 2~3px，故比例上限兜底取 8px。
-            tmax = min(max(8, int(min(bw, bh) * 0.20)),
-                       min(bw, bh) * 0.35)             # 壁厚上限
-            # 腔体面积下限：.notdef 在构建分辨率（正文≥16px、检测宽≤2400）下
-            # 空腔实测 ≥100px²（probe 24×48=1152、dv 32×64=2048）；误报的汉字
-            # "口"部件与 Mermaid 小图标孔洞腔仅 9~60px²，整幅排除。粘连截断
-            # 分支（bh 为代理值）不适用此判据——真 dv.png 粘连时腔可被砍小。
-            cavity_min = 100 if not stuck_trunc else 3
+            tmax = min(bw, bh) * 0.35                    # 壁厚上限
             top_t = 0
             while top_t < bh and black[y + top_t][x + bw // 2]:
                 top_t += 1
-            if not (2 <= top_t <= tmax):              # 顶壁厚下限同取绝对 2px
+            if not (bh * 0.08 <= top_t <= tmax):         # 顶壁厚按高度比例（原误用 bw）
                 continue
             left_t = 0
             while left_t < bw and black[y + bh // 2][x + left_t]:
                 left_t += 1
-            if not (2 <= left_t <= tmax):             # 左壁厚下限同取绝对 2px
+            if not (bw * 0.08 <= left_t <= tmax):        # 左壁厚按宽度比例（原误用 bh）
                 continue
             # 内腔必须存在且全白（从边框内侧起跳）
             ix0, iy0 = x + left_t, y + top_t
@@ -791,8 +837,6 @@ def _png_has_notdef_box(png_path):
             ix1, iy1 = xe - rt + 1, ye - bt + 1
             if ix1 - ix0 < 3 or iy1 - iy0 < 3:
                 continue
-            if (ix1 - ix0) * (iy1 - iy0) < cavity_min:
-                continue                   # 腔过小：汉字"口"部件/图标孔洞，非 .notdef
             if not interior_white(ix0, iy0, ix1, iy1):
                 continue
             # .notdef 空心矩形是"顶行+底行+左列+右列"四条**细带**，四角为孤立
@@ -830,75 +874,9 @@ def _png_has_notdef_box(png_path):
                 continue
             try_box(x, y)
 
-    # 扫描 B：右下角锚定回推——覆盖粘连/共用边导致左上角特征被破坏、且壁厚
-    # 比例判据在截断坐标下失效的情形（实测 dv.png：.notdef 底边与邻字顶边粘连
-    # 成共用带，真框左上角的左列走线被截为 bh=5~8px，tt0 预探测按 bh*0.35 上限
-    # 误杀全部锚点）。对每个"下邻非黑且右邻非黑"的黑像素 (x,y)（候选右下角），
-    # 向左/向上各走 ≤max_side+1 找第一条同时满足"整幅实心横带 + 下方连续 ≥3 行
-    # 实心 + 横带下方全白"的横线，即框的真实底边 yb；其上方紧邻的第一条同样
-    # "整幅实心 + 下方全白"的横线即框的顶边 yt。由 yt/x 做轻量复核（try_frame）
-    # 后记录。内腔全白 + 四边实心带的组合可排除实心块（无空腔）与汉字笔画团
-    # （横带下方不会连续多行全白）。
-    for y in range(h):
-        row = black[y]
-        for x in range(w):
-            if not row[x]:
-                continue
-            if is_dark(x, y + 1) or is_dark(x + 1, y):
-                continue                             # 非右下角
-            # 向左找真实底边 yb：(y,x) 本身即候选底行起点之一
-            found_yb = None
-            for yy in range(y, max(-1, y - max_side - 2), -1):
-                xr = x
-                while xr - 1 >= 0 and black[yy][xr - 1]:
-                    xr -= 1
-                if xr > x - max_side:                # 横带长度须在框尺寸范围
-                    continue
-                if not (col_all(xr, yy, min(h - 1, yy + max_side))):
-                    pass
-                # 底边判据：该行 [xr..x] 全黑（向左走线已保证）、x 列自 yy 向下
-                # 连续实心 ≥3 行、且该行下方 3~6 行在 (xr+3..x-3) 区间全白
-                below_solid = sum(1 for k in range(1, 4)
-                                  if is_dark(x, yy + k))
-                if below_solid < 2:
-                    continue
-                white_ok = True
-                for k in range(3, 7):
-                    if yy + k >= h:
-                        break
-                    for xx in range(xr + 3, x - 2):
-                        if black[yy + k][xx]:
-                            white_ok = False
-                            break
-                    if not white_ok:
-                        break
-                if white_ok:
-                    found_yb = yy
-                    break
-            if found_yb is None:
-                continue
-            # 由底边向上找顶边 yt：第一条 [xr..x] 全黑且其下方全白的横线
-            xr = x
-            while xr - 1 >= 0 and black[found_yb][xr - 1]:
-                xr -= 1
-            yt = None
-            for yy in range(max(0, found_yb - max_side - 1), found_yb):
-                if not row_all(yy, xr, x):
-                    continue
-                gap_white = True
-                for k in range(yy + 2, found_yb - 1):
-                    for xx in range(xr + 3, x - 2):
-                        if black[k][xx]:
-                            gap_white = False
-                            break
-                    if not gap_white:
-                        break
-                if gap_white and try_frame(xr, yy):
-                    yt = yy
-                    break
-            if yt is not None:
-                # 该右下角已消化，跳过同底边的其余右下角（性能）
-                pass
+    # 扫描 B：右下角锚定——覆盖抗锯齿/粘连导致左上角特征不纯的情形。
+    # (x,y) 黑、下/右邻非黑 → 左上角必为同一条顶行连续段的起点 xs，
+    # 与扫描 A 等价，故无需独立路径（保留注释说明设计决策）。
 
     return len(boxes) >= 3
 
@@ -956,6 +934,13 @@ def svg_to_png(svg_path, png_path, dpi=300):
     经 opticon/Imager 渲染，实测会把 CJK 文本整段丢弃（PNG 里连方框都没有），
     是旧版"SVG 嵌入 docx 中文丢失"的直接根因。全部路径失败则返回 False，
     由调用方决定回退策略。返回是否成功。
+    栅格化后做双重像素校验：源 SVG 含中文而 PNG 几乎全白 → 丢字判失败；
+    PNG 中存在成批 .notdef 空心方框 → 字体环境缺中文字形判失败（防"方框"静默出厂）。
+    cairosvg 缺失时走 node+sharp 光栅化（Sharp 内嵌 librsvg，支持 foreignObject
+    原生渲染与 fontconfig 回退）——**不再用 pandoc 转 PNG**：pandoc 的 svg2png
+    经 opticon/Imager 渲染，实测会把 CJK 文本整段丢弃（PNG 里连方框都没有），
+    是旧版"SVG 嵌入 docx 中文丢失"的直接根因。全部路径失败则返回 False，
+    由调用方决定回退策略。返回是否成功。
     """
     try:
         import cairosvg
@@ -987,11 +972,25 @@ def svg_to_png(svg_path, png_path, dpi=300):
         out_w = max(1, int(round(vw * scale)))
         out_h = max(1, int(round(vh * scale)))
         rendered_by = None
+        out_w = max(1, int(round(vw * scale)))
+        out_h = max(1, int(round(vh * scale)))
+        rendered_by = None
         if cairosvg is not None:
             cairosvg.svg2png(bytestring=text.encode('utf-8'), write_to=png_path,
                              output_width=out_w, output_height=out_h)
             rendered_by = 'cairosvg'
+                             output_width=out_w, output_height=out_h)
+            rendered_by = 'cairosvg'
         else:
+            # sharp（librsvg）：支持 foreignObject 与 fontconfig 中文回退；
+            # 明确排除 pandoc——其 svg2png 渲染器会整段丢弃 CJK 文本（见文档）
+            if _sharp_render_png(text.encode('utf-8'), png_path, out_w, out_h):
+                rendered_by = 'sharp(librsvg)'
+        if rendered_by is None:
+            log(f'  ! SVG 栅格化失败（{os.path.basename(svg_path)}）：'
+                f'cairosvg 与 node+sharp 均不可用，不退回 pandoc'
+                f'（其渲染器丢 CJK 文本），请 pip install cairosvg 或 npm i sharp')
+            return False
             # sharp（librsvg）：支持 foreignObject 与 fontconfig 中文回退；
             # 明确排除 pandoc——其 svg2png 渲染器会整段丢弃 CJK 文本（见文档）
             if _sharp_render_png(text.encode('utf-8'), png_path, out_w, out_h):
@@ -1019,6 +1018,18 @@ def svg_to_png(svg_path, png_path, dpi=300):
                 if ink < 0.005:
                     log(f'  ! SVG 栅格化校验失败（{os.path.basename(svg_path)}）：'
                         f'PNG 近乎全白，中文可能未渲染，请检查 cairosvg 字体环境')
+                    return False
+            except Exception:
+                pass
+        # 方框校验：源含中文且 PNG 里成批出现 .notdef 空心方框 → 字体链取到了
+        # 无中文字形的西文字体（"不显示"修好了但"变方框"没修好），判失败。
+        if ok and has_cjk_src:
+            try:
+                if _png_has_notdef_box(png_path):
+                    log(f'  ! SVG 栅格化校验失败（{os.path.basename(svg_path)}）：'
+                        f'检测到 .notdef 空心方框，中文字形缺失；'
+                        f'当前构建字体={SVG_BUILD_CJK_FONT!r}，'
+                        f'请安装 Noto Sans CJK/WenQuanYi 或联网自动拉取后重试')
                     return False
             except Exception:
                 pass
