@@ -127,7 +127,7 @@ def render(cards, intents):
                 continue
             parts.append(ln)
         parts.append('')
-    # 尾部小节（A.16/A.17 等）原样带过来
+    # 尾部小节（A.16/A.17/A.18/A.19 等）原样带过来
     tail = re.search(r'(\n## A\.1[6-9].*)$', existing, flags=re.S)
     if tail:
         parts.append(tail.group(1).strip() + '\n')
