@@ -637,6 +637,33 @@ def _png_has_notdef_box(png_path):
     max_side = 90                      # 正文字号 300DPI≈50px，留标题字号余量
     min_side = 12
 
+    def try_frame(x, y):
+        """轻量复核：(x,y) 为左上角时验证四条实心带 + 内腔全白。
+        供扫描 B（右下角锚定回推）使用，命中即记录，不做壁厚精判。"""
+        row = black[y]
+        xe = x
+        while xe + 1 < w and row[xe + 1]:
+            xe += 1
+        ye = y
+        while ye + 1 < h and black[ye + 1][x]:
+            ye += 1
+        bw, bh = xe - x + 1, ye - y + 1
+        if not (min_side <= bw <= max_side and min_side <= bh <= max_side):
+            return False
+        if not (0.5 <= bw / bh <= 1.4):      # 下限同 try_box：DejaVu .notdef 竖长 ≈0.57
+            return False
+        # 四边整幅实心带（顶/底行、左/右列）
+        if not (row_all(y, x, xe) and row_all(ye, x, xe)
+                and col_all(x, y, ye) and col_all(xe, y, ye)):
+            return False
+        # 内腔必须全白且非退化
+        if xe - x < 6 or ye - y < 6:
+            return False
+        if not interior_white(x + 2, y + 2, xe - 2, ye - 2):
+            return False
+        record(x, y, bw, bh)
+        return True
+
     def record(x, y, bw, bh):
         """找到一个合格空心粗框，记录并去重。"""
         for ux, uy, uw in boxes:
@@ -668,11 +695,22 @@ def _png_has_notdef_box(png_path):
         # 直接拒绝将漏检；故 bh 过小视为"被截断"，改用顶行走线长作高度参考，
         # 窗校验里再以 ye 处的实心底带兜真值（假锚找不到闭合底边自然落空）。
         bh = ye - y + 1
+        stuck_trunc = False                # 左列走线是否被粘连横带截断（代理高度）
         if bh > max_side:
             return False
         h_ref = max(bh, e - x + 1)          # 高度参考：走线被截时取顶行段宽近似
         if h_ref < min_side:
             return False
+        # 左列走线被截断（bh < min_side，粘连形态）时 ye 不是真底边——改以顶行
+        # 连续段长度为框尺寸代理，向下探测候选底带（实测 dv.png：字高 74px、
+        # 左列在共用横带处断为 bh≈5~8px，真底边在下方 40~90px 处）。
+        if bh < min_side:
+            cand_ye = y + max(min_side, (e - x + 1)) - 1
+            if cand_ye >= h or not black[cand_ye][x]:
+                return False
+            ye = cand_ye
+            bh = ye - y + 1
+            stuck_trunc = True
         # 顶行中点列探测真实顶壁厚。锚点落在横带下沿（相邻粘连框的第二排左上角、
         # 或 .notdef 底边与下一字顶边粘连的共用带）时，向下探测得 tt0≈0——须改向
         # 上探：锚行自身即某框顶带时，向上走满该带同样得到壁厚。两方向皆 ≤1px
@@ -691,14 +729,20 @@ def _png_has_notdef_box(png_path):
                 tu0 += 1
             tt0 = tu0
         ref = min(e - x + 1, bh)
-        if not (bh * 0.08 <= tt0 <= min(ref, max_side) * 0.35):
+        # 下限取绝对 2px 而非 bh*0.08：小字号/降采样后 .notdef 壁厚可低至
+        # 3~4px（实测 probe.png：bh=56、tt0=4，旧下限 4.48 误杀真框）。
+        if not (2 <= tt0 <= min(ref, max_side) * 0.35):
             return False
         best = None
+        # 宽高比下限 0.5：实测 DejaVu .notdef 为竖长空心矩形（probe.png 32×56
+        # ratio≈0.57、dv.png 42×74 ratio≈0.57），旧下限 0.7 把全部候选窗滤掉
+        # （两图漏检根因）。上限维持 1.4（长条装饰框不满足）；汉字部件误报
+        # 由内腔全白 + 过中线连续段 ≤壁厚+2px 两道判据兜住，放宽下限安全。
         for xe in range(x + min_side, e + 1):
             bw = xe - x + 1
             if bw > max_side:
                 break
-            if not (0.7 <= bw / bh <= 1.4):
+            if not (0.5 <= bw / bh <= 1.4):
                 continue
             # 底/右整幅实心带 + 角部实心（排除横带截出的假窗）
             if not (row_all(ye, x, xe)                   # 底边整幅实心带
@@ -711,16 +755,26 @@ def _png_has_notdef_box(png_path):
             # 粘连排布下 ye 可能被邻框横带截短致 bh 偏小，故比例上限取
             # max(bh, bw)*0.35 兜容（实测 dv.png：字高 74px、bh 被截为 19px、
             # 真壁厚 5px，按 bh*0.35=6.6 仍可通过；此处保留原口径并显式写明）。
-            tmax = min(bw, bh) * 0.35                    # 壁厚上限
+            # 上限再设绝对地板：真实插图误报源（t_图1-2/1-3/10-1）系实心粗块
+            # 内白孔（"回"字形部件、圆角节点局部），壁占比 ≥25%；而 .notdef
+            # 空心矩形壁占比恒 ≤20%（probe 4/32、dv 5/42、gap0 合成 5/38）。
+            # 小字号下 .notdef 壁厚可低至 2~3px，故比例上限兜底取 8px。
+            tmax = min(max(8, int(min(bw, bh) * 0.20)),
+                       min(bw, bh) * 0.35)             # 壁厚上限
+            # 腔体面积下限：.notdef 在构建分辨率（正文≥16px、检测宽≤2400）下
+            # 空腔实测 ≥100px²（probe 24×48=1152、dv 32×64=2048）；误报的汉字
+            # "口"部件与 Mermaid 小图标孔洞腔仅 9~60px²，整幅排除。粘连截断
+            # 分支（bh 为代理值）不适用此判据——真 dv.png 粘连时腔可被砍小。
+            cavity_min = 100 if not stuck_trunc else 3
             top_t = 0
             while top_t < bh and black[y + top_t][x + bw // 2]:
                 top_t += 1
-            if not (bh * 0.08 <= top_t <= tmax):         # 顶壁厚按高度比例（原误用 bw）
+            if not (2 <= top_t <= tmax):              # 顶壁厚下限同取绝对 2px
                 continue
             left_t = 0
             while left_t < bw and black[y + bh // 2][x + left_t]:
                 left_t += 1
-            if not (bw * 0.08 <= left_t <= tmax):        # 左壁厚按宽度比例（原误用 bh）
+            if not (2 <= left_t <= tmax):             # 左壁厚下限同取绝对 2px
                 continue
             # 内腔必须存在且全白（从边框内侧起跳）
             ix0, iy0 = x + left_t, y + top_t
@@ -737,6 +791,8 @@ def _png_has_notdef_box(png_path):
             ix1, iy1 = xe - rt + 1, ye - bt + 1
             if ix1 - ix0 < 3 or iy1 - iy0 < 3:
                 continue
+            if (ix1 - ix0) * (iy1 - iy0) < cavity_min:
+                continue                   # 腔过小：汉字"口"部件/图标孔洞，非 .notdef
             if not interior_white(ix0, iy0, ix1, iy1):
                 continue
             # .notdef 空心矩形是"顶行+底行+左列+右列"四条**细带**，四角为孤立
@@ -774,9 +830,75 @@ def _png_has_notdef_box(png_path):
                 continue
             try_box(x, y)
 
-    # 扫描 B：右下角锚定——覆盖抗锯齿/粘连导致左上角特征不纯的情形。
-    # (x,y) 黑、下/右邻非黑 → 左上角必为同一条顶行连续段的起点 xs，
-    # 与扫描 A 等价，故无需独立路径（保留注释说明设计决策）。
+    # 扫描 B：右下角锚定回推——覆盖粘连/共用边导致左上角特征被破坏、且壁厚
+    # 比例判据在截断坐标下失效的情形（实测 dv.png：.notdef 底边与邻字顶边粘连
+    # 成共用带，真框左上角的左列走线被截为 bh=5~8px，tt0 预探测按 bh*0.35 上限
+    # 误杀全部锚点）。对每个"下邻非黑且右邻非黑"的黑像素 (x,y)（候选右下角），
+    # 向左/向上各走 ≤max_side+1 找第一条同时满足"整幅实心横带 + 下方连续 ≥3 行
+    # 实心 + 横带下方全白"的横线，即框的真实底边 yb；其上方紧邻的第一条同样
+    # "整幅实心 + 下方全白"的横线即框的顶边 yt。由 yt/x 做轻量复核（try_frame）
+    # 后记录。内腔全白 + 四边实心带的组合可排除实心块（无空腔）与汉字笔画团
+    # （横带下方不会连续多行全白）。
+    for y in range(h):
+        row = black[y]
+        for x in range(w):
+            if not row[x]:
+                continue
+            if is_dark(x, y + 1) or is_dark(x + 1, y):
+                continue                             # 非右下角
+            # 向左找真实底边 yb：(y,x) 本身即候选底行起点之一
+            found_yb = None
+            for yy in range(y, max(-1, y - max_side - 2), -1):
+                xr = x
+                while xr - 1 >= 0 and black[yy][xr - 1]:
+                    xr -= 1
+                if xr > x - max_side:                # 横带长度须在框尺寸范围
+                    continue
+                if not (col_all(xr, yy, min(h - 1, yy + max_side))):
+                    pass
+                # 底边判据：该行 [xr..x] 全黑（向左走线已保证）、x 列自 yy 向下
+                # 连续实心 ≥3 行、且该行下方 3~6 行在 (xr+3..x-3) 区间全白
+                below_solid = sum(1 for k in range(1, 4)
+                                  if is_dark(x, yy + k))
+                if below_solid < 2:
+                    continue
+                white_ok = True
+                for k in range(3, 7):
+                    if yy + k >= h:
+                        break
+                    for xx in range(xr + 3, x - 2):
+                        if black[yy + k][xx]:
+                            white_ok = False
+                            break
+                    if not white_ok:
+                        break
+                if white_ok:
+                    found_yb = yy
+                    break
+            if found_yb is None:
+                continue
+            # 由底边向上找顶边 yt：第一条 [xr..x] 全黑且其下方全白的横线
+            xr = x
+            while xr - 1 >= 0 and black[found_yb][xr - 1]:
+                xr -= 1
+            yt = None
+            for yy in range(max(0, found_yb - max_side - 1), found_yb):
+                if not row_all(yy, xr, x):
+                    continue
+                gap_white = True
+                for k in range(yy + 2, found_yb - 1):
+                    for xx in range(xr + 3, x - 2):
+                        if black[k][xx]:
+                            gap_white = False
+                            break
+                    if not gap_white:
+                        break
+                if gap_white and try_frame(xr, yy):
+                    yt = yy
+                    break
+            if yt is not None:
+                # 该右下角已消化，跳过同底边的其余右下角（性能）
+                pass
 
     return len(boxes) >= 3
 
