@@ -32,7 +32,9 @@
   python3 assemble_agentbook.py --toc-depth N  # 目录收录到 N 级标题（默认 2）
   python3 assemble_agentbook.py --outdir DIR   # 自定义输出目录（默认 agentbook/输出/）
 
-依赖：python3、pypandoc-binary（自带 pandoc）、python-docx、pillow
+依赖：python3、pypandoc-binary（自带 pandoc）、python-docx、pillow、cairosvg
+     （cairosvg 可选：缺用时 SVG→PNG 走 pandoc 回退。Word 的 SVG 渲染引擎不支持
+     中文字体回退，插图 SVG 在构建时预栅格化为 300DPI PNG，见 svg_to_png）
 """
 
 import argparse
@@ -382,24 +384,182 @@ def assemble_markdown(outdir, keep_notes, cn_quotes=True, final=False):
 
 
 # ----------------------------------------------------------------------------
-# 第二步：图片压缩（审阅用副本，源图不动）
+# 第二步：图片预处理（审阅用副本，源图不动）
+#   · SVG → 300 DPI PNG 预栅格化（Word 对 SVG 的中文支持缺失，见函数文档）
+#   · 位图 → 长边限 1600px 压缩副本
 # ----------------------------------------------------------------------------
+SVG_CJK_FALLBACK = ('Microsoft YaHei,PingFang SC,Noto Sans CJK SC,'
+                    'Source Han Sans SC,WenQuanYi Zen Hei,SimHei,宋体')
+
+
+def _mermaid_fo_to_native_text(text):
+    """把 Mermaid SVG 里的 <foreignObject>（HTML 标签）改写为原生 SVG <text>。
+
+    根因补充：mmdc 默认 htmlLabels:true，节点/边标签全部以 XHTML foreignObject
+    嵌入 SVG——cairosvg 完全不渲染 foreignObject、Word 的 SVG 引擎也不支持，
+    导致预栅格化后的 PNG 里中文照样丢失（旧版仅做 font-family 注入无效）。
+    本函数按 foreignObject 的 width/height 与父级 translate 定位，抽取 <p> 文本、
+    以 <br> 断行、按 line-height/text-align 还原多行居中排版，转为带显式
+    font-family（含 CJK 回退链）的 <text><tspan>。返回 (新文本, 转换数)。
+    """
+    import html as _html
+
+    def conv(mm):
+        attrs, inner = mm.group(1), mm.group(2)
+        mw = re.search(r'width="([\d.]+)"', attrs)
+        mh = re.search(r'height="([\d.]+)"', attrs)
+        if not (mw and mh):
+            return mm.group(0)          # 无法定位，原样保留
+        w, h = float(mw.group(1)), float(mh.group(1))
+        sm = re.search(r'<div[^>]*style="([^"]*)"', inner)
+        style = sm.group(1) if sm else ''
+        fs = 16.0
+        fsm = re.search(r'font-size:\s*([\d.]+)px', style)
+        if fsm:
+            fs = float(fsm.group(1))
+        lhm = re.search(r'line-height:\s*([\d.]+)', style)
+        lh = fs * (float(lhm.group(1)) if lhm else 1.5)
+        anchor = 'middle' if 'text-align: center' in style else 'start'
+        pm = re.search(r'<p>(.*?)</p>', inner, flags=re.S)
+        raw = _html.unescape(pm.group(1) if pm
+                              else re.sub(r'<[^>]+>', '', inner))
+        lines = [ln.strip() for ln in re.split(r'<br\s*/?>', raw)
+                 if ln.strip()] or ['']
+        y0 = max((h - lh * len(lines)) / 2 + lh * 0.78, lh * 0.78)
+        x = w / 2 if anchor == 'middle' else 0
+        tspans = ''.join('<tspan x="%g" y="%g">%s</tspan>'
+                         % (x, y0 + i * lh, _html.escape(ln))
+                         for i, ln in enumerate(lines))
+        return ('<text font-family="%s" font-size="%g" text-anchor="%s">'
+                '%s</text>' % (SVG_CJK_FALLBACK, fs, anchor, tspans))
+
+    out, n = re.subn(r'<foreignObject([^>]*)>(.*?)</foreignObject>',
+                     conv, text, flags=re.S)
+    return out, n
+
+
+def _inject_cjk_font_fallback(text):
+    """向 SVG 的 CSS/属性 font-family 追加 CJK 回退链（幂等）。
+
+    注意：Mermaid 的字体值本身带引号（如 font-family:"trebuchet ms",verdana,…），
+    旧正则 `[^;"}]+` 遇首个引号即失配、注入静默失效，故此处允许值中含引号；
+    负向前瞻跳过已注入过的声明，保证重复调用不叠加。
+    """
+    pat = re.compile(r'font-family:(?![^;{}]*Microsoft YaHei)\s*'
+                     r'((?:[^;"{}]|"[^"]*")+)', re.S)
+    text, _ = pat.subn(lambda mm: 'font-family:' + mm.group(1).rstrip() + ','
+                       + SVG_CJK_FALLBACK, text)
+    text = re.sub(r"font-family='([^']*)'",
+                  lambda mm: "font-family='%s,%s'"
+                             % (mm.group(1), SVG_CJK_FALLBACK), text)
+    text = re.sub(r'font-family="([^"]*)"',
+                  lambda mm: 'font-family="%s,%s"'
+                             % (mm.group(1), SVG_CJK_FALLBACK), text)
+    return text
+
+
+def svg_to_png(svg_path, png_path, dpi=300):
+    """把 Mermaid SVG 预栅格化为高清 PNG，解决 docx 插图中文丢失问题。
+
+    中文丢失有两层原因，缺一不可地都要处理：
+    ① Word 端：pandoc 若将 SVG 直通嵌入 docx，Word 的 SVG 渲染引擎（IE/Trident）
+       不解析 <style> 里的 font-family CSS、西文字体链无中文字形且不回退 → 空白；
+    ② 构建端：mmdc 默认用 HTML <foreignObject> 承载标签文字，cairosvg 不支持
+       foreignObject——即便预栅格化，PNG 里中文同样是空的（旧版脚本即败在此，
+       其 font-family 注入还因 Mermaid 字体值带引号而从未生效）。
+    对策：先把 foreignObject 改写为带 CJK 回退字体链的原生 SVG <text>，再对
+    其余 CSS/属性注入同一回退链，最后按 viewBox 尺寸 ×300DPI 栅格化；PNG 自带
+    字形，任何阅读器显示一致。cairosvg 不可用时回退 pandoc 原生 SVG→PNG。
+    栅格化后做像素校验：源 SVG 含中文而 PNG 几乎全白则判失败（防再次静默丢字）。
+    返回是否成功。
+    """
+    try:
+        import cairosvg
+    except ImportError:
+        cairosvg = None
+    try:
+        with open(svg_path, encoding='utf-8') as f:
+            text = f.read()
+        m = re.search(r'<svg\b[^>]*>', text)
+        if not m:
+            return False
+        tag = m.group(0)
+        mvb = re.search(r'viewBox="([\d.\s-]+)"', tag)
+        if mvb:
+            vb = [float(x) for x in mvb.group(1).split()]
+            vw, vh = vb[2], vb[3]
+        else:
+            mw = re.search(r'\bwidth="([\d.]+)', tag)
+            mh = re.search(r'\bheight="([\d.]+)', tag)
+            if not (mw and mh):
+                return False
+            vw, vh = float(mw.group(1)), float(mh.group(1))
+        has_cjk_src = any('\u4e00' <= c <= '\u9fff' for c in text)
+        # 关键一步：foreignObject(HTML 标签) → 原生 SVG <text>（否则中文不可见）
+        text, n_fo = _mermaid_fo_to_native_text(text)
+        # 其余 CSS 声明 + font-family 属性补注 CJK 回退（修复版正则，见文档）
+        text = _inject_cjk_font_fallback(text)
+        scale = dpi / 96.0
+        if cairosvg is not None:
+            cairosvg.svg2png(bytestring=text.encode('utf-8'), write_to=png_path,
+                             output_width=max(1, int(round(vw * scale))),
+                             output_height=max(1, int(round(vh * scale))))
+        else:
+            tmp_svg = png_path + '.fallback.svg'
+            with open(tmp_svg, 'w', encoding='utf-8') as f:
+                f.write(re.sub(r'\bw(?:idth)="[^"]*"', f'width="{vw}"', tag)
+                        + text[m.end():])
+            pypandoc.convert_file(tmp_svg, 'png', outputfile=png_path,
+                                  extra_args=['--quiet'])
+            os.remove(tmp_svg)
+        ok = os.path.isfile(png_path) and os.path.getsize(png_path) > 0
+        # 像素校验：源含中文但栅格结果几乎全白 → 文字被渲染器丢弃，判失败告警
+        if ok and has_cjk_src:
+            try:
+                from PIL import Image
+                with Image.open(png_path) as im:
+                    im = im.convert('L').resize((200, 200))
+                    px = list(im.getdata())
+                ink = sum(1 for p in px if p < 200) / len(px)
+                if ink < 0.005:
+                    log(f'  ! SVG 栅格化校验失败（{os.path.basename(svg_path)}）：'
+                        f'PNG 近乎全白，中文可能未渲染，请检查 cairosvg 字体环境')
+                    return False
+            except Exception:
+                pass
+        if n_fo:
+            log(f'    · {os.path.basename(svg_path)}：foreignObject→原生文本 '
+                f'{n_fo} 处')
+        return ok
+    except Exception as e:
+        log(f'  ! SVG 栅格化失败（{os.path.basename(svg_path)}）：{e}')
+        return False
+
+
 def resize_media(md_text, tmpdir, max_side=1600, quality=85):
     """
-    将合并 md 引用到的 书稿/插画 大图压缩为副本，返回 (临时md文本, 图片映射数)。
-    副本存于 tmpdir；扁平插画转 JPEG（q85），带透明通道的保留 PNG。
+    将合并 md 引用到的图片做构建副本：SVG 预栅格化为 300DPI PNG（Word 中文
+    兼容），位图大图压缩为 JPEG/PNG 副本，返回 (临时md文本, 图片映射数)。
+    副本存于 tmpdir；源图零改动。
     """
     from PIL import Image
 
     refs = sorted(set(re.findall(r'^!\[[^\]]*\]\(([^)]+)\)', md_text, flags=re.M)))
     mapping = {}
+    n_svg = 0
     for rel in refs:
         src = os.path.normpath(os.path.join(BOOK_DIR, '输出', rel))
         if not os.path.isfile(src):
             continue
-        # SVG（Mermaid 渲染图）直通：pandoc 原生嵌入矢量图，PIL 无法处理也不需压缩
+        # SVG（Mermaid 渲染图）→ 预栅格化 PNG：Word 的 SVG 引擎丢中文，不再直通
         if src.lower().endswith('.svg'):
-            mapping[rel] = src
+            stem = os.path.splitext(os.path.basename(src))[0]
+            dst = os.path.join(tmpdir, stem + '.png')
+            if svg_to_png(src, dst):
+                mapping[rel] = dst
+                n_svg += 1
+            else:                       # 栅格化失败：退回直通（保构建可用）
+                mapping[rel] = src
             continue
         with Image.open(src) as im:
             im.load()
@@ -423,6 +583,8 @@ def resize_media(md_text, tmpdir, max_side=1600, quality=85):
     tmp_md = md_text
     for rel, dst in mapping.items():
         tmp_md = tmp_md.replace(f']({rel})', f']({dst})')
+    if n_svg:
+        log(f'  ✓ SVG 预栅格化 {n_svg} 幅 → 300DPI PNG（Word 中文兼容）')
     return tmp_md, len(mapping)
 
 
@@ -797,16 +959,17 @@ def main():
     build_md = md_path
     try:
         if not args.no_resize:
-            log('【3/5】压缩插图副本（源图不动）…')
+            log('【3/5】图片预处理（SVG→300DPI PNG，位图压缩副本）…')
             tmp_md, n_img = resize_media(merged, tmpdir)
             build_md = os.path.join(tmpdir, 'build.md')
             with open(build_md, 'w', encoding='utf-8') as f:
                 f.write(tmp_md)
             total_mb = sum(os.path.getsize(os.path.join(tmpdir, x))
                            for x in os.listdir(tmpdir) if x != 'build.md') / 1e6
-            log(f'  ✓ {n_img} 张插图 → 长边 1600px JPEG 副本，共 {total_mb:.1f} MB')
+            log(f'  ✓ {n_img} 张插图 → 构建副本（位图长边 1600px），共 {total_mb:.1f} MB')
         else:
-            log('【3/5】跳过图片压缩（--no-resize）')
+            log('【3/5】跳过图片预处理（--no-resize，SVG 将原样嵌入 docx——'
+                'Word 显示时插图中文会丢失，仅调试用）')
 
         # -- 4. pandoc 转换 -------------------------------------------------
         log('【4/5】pandoc 转换 docx …')
