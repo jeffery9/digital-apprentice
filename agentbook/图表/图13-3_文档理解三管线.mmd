@@ -1,21 +1,22 @@
 %% 图 13-3｜文档理解三管线对照（第 13 章）
 %% 同一份扫描合同自左向右流过三条并行管线；底部标注每线的成本轴与保真轴落点。
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart TB
     DOC["输入：扫描版合同<br/>（图像层，无文本层）"]
 
     subgraph P1["① 解析器 / OCR 路线"]
-        direction LR
+        direction TB
         A1["文本层直抽<br/>（有则优先）"] --> A2["版面分析<br/>（分栏·表格定位）"] --> A3["结构重建<br/>（章节/条款树）"]
         A3 --> A4["产物：可检索文本<br/>失真点：跨页表格断裂"]
     end
 
     subgraph P2["② 视觉检索路线"]
-        direction LR
+        direction TB
         B1["页面渲染成图"] --> B2["视觉嵌入索引"] --> B3["返回页面图像<br/>精确关键词匹配反而变弱"]
     end
 
     subgraph P3["③ 混合路线"]
-        direction LR
+        direction TB
         C1{"查询路由器分流"}
         C1 -- "精确命中" --> C2["走文本索引<br/>（①的产物）"]
         C1 -- "版式兜底" --> C3["走视觉索引<br/>（②的产物）"]

@@ -1,8 +1,9 @@
 %% 图 13-2｜端到端与分离管线四维对照（第 13 章）
 %% 左右两栏：原生多模态端到端 vs 感知-推理分离管线；四行对齐，底部"混合"滑动切分线。
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart TB
     subgraph E2E["原生多模态端到端"]
-        direction TB
+        direction LR
         E1["可靠性可分解性：弱<br/>失效难归因（一个模型全包）"]
         E2["单位成本结构：按 token 一体计价<br/>像素进上下文即计费"]
         E3["可观测性：低<br/>中间表征不可见"]
@@ -10,7 +11,7 @@ flowchart LR
     end
 
     subgraph SEP["感知-推理分离管线"]
-        direction TB
+        direction LR
         S1["可靠性可分解性：强<br/>OCR/ASR/VLM/LLM 各自可测可换"]
         S2["单位成本结构：分段计价<br/>感知便宜、推理按需"]
         S3["可观测性：高<br/>中间文本产物可审计"]

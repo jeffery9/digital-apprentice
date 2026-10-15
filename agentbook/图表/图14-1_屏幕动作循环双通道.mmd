@@ -1,8 +1,9 @@
 %% 图 14-1｜屏幕-动作循环与双通道观察（第 14 章）
 %% 截图＋（可得时）无障碍树双通道输入 → 受限动作 schema → 沙箱执行 → 显式验证（等待条件，绝不固定 sleep）。
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart TB
     subgraph OBS["观察（双通道，IR 纪律沿用 13.4）"]
-        direction TB
+        direction LR
         SHOT["截图<br/>（低保真界面投影，恒可用）"]
         AX["无障碍树 / 元素列表<br/>（理想形态，Web 页面常残缺）"]
     end

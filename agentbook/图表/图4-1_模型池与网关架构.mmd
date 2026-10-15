@@ -1,16 +1,17 @@
 %% 图 4-1｜模型池与网关架构（第 4 章之锚）
 %% 要点：语义缓存在路由之前；合规分区做成"候选集过滤器"；遥测是路由改进/成本归因/评估采样的共同数据源
 %% 灰阶：应用与模型池为白底细框，网关七职责为白底粗框，画像库与日志为灰底
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart TB
     subgraph APPS["应用侧（各自只持薄适配层 llm.py）"]
-        direction TB
+        direction LR
         A1["工单建议 agent"]
         A2["合同问答 agent"]
         A3["日志诊断 agent"]
     end
 
     subgraph GW["模型网关（唯一入口·跨系统治理）"]
-        direction TB
+        direction LR
         G1["① 单一入口与鉴权（租户·调用点标识）"]
         G2["② 语义缓存（在路由之前：命中即返回）"]
         G3["③ 策略层：合规分区＝候选集过滤器 · 配额 · 预算闸"]
@@ -22,7 +23,7 @@ flowchart LR
     end
 
     subgraph POOL["模型池（准入：无画像不得调用）"]
-        direction TB
+        direction LR
         P1["供应商 A 旗舰（快照 2026-08-12）"]
         P2["供应商 A 中档（快照 2026-09-02）"]
         P3["供应商 B 多模态（快照 2026-07-30）"]

@@ -1,9 +1,10 @@
 %% 图 2-4｜两条横切轴的存量体检用法（第 2 章 2.3 节）
 %% 横轴＝模态轴六档；纵轴＝时程轴四档；每格标"最先出问题的层"（对应表 2-2）
 %% 三个标记点＝智航三套存量系统的落点；读法：沿模态轴右移压力转向 L3/L2，沿时程轴下移压力转向 L4/L5
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
 flowchart LR
     subgraph GRID["模态轴 →（信息以什么形式进出）"]
-        direction TB
+        direction LR
         R1["① 纯文本<br/>单轮:L1a｜多轮:L2｜长任务:L4｜常驻:L5"]
         R2["② ＋结构化数据<br/>单轮:L3｜多轮:L2｜长任务:L2｜常驻:L5"]
         R3["③ ＋文档图像　★合同问答 agent<br/>单轮:L1a｜多轮:L2｜长任务:L3｜常驻:L5"]
@@ -13,7 +14,7 @@ flowchart LR
         R1 --- R2 --- R3 --- R4 --- R5 --- R6
     end
     subgraph HOR["时程轴 ↓（任务活多久）"]
-        direction TB
+        direction LR
         H1["单轮（秒级）"]
         H2["会话内多轮（分钟级）★工单建议 agent"]
         H3["跨会话长任务（小时级）★日志诊断 agent"]

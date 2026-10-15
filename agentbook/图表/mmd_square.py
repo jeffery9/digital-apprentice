@@ -34,7 +34,8 @@ RATIO_FLAT = 1.95      # 宽/高 超过此值 → 判"过扁"，需要增高（�
 RATIO_TALL = 0.72      # 宽/高 低于此值 → 判"过高"，需要增宽（转横向）
 
 FC_INIT = ('%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, '
-           '"padding": 18, "useMaxWidth": false}}}%%')
+           '"padding": 18, "htmlLabels": false}}}%%')
+# htmlLabels:false 对序列图会造成中文变方框/文字重叠，故序列图不设该项（仅关 useMaxWidth）
 SEQ_INIT = ('%%{init: {"sequence": {"actorMargin": 130, "messageMargin": 55, '
             '"boxMargin": 12, "useMaxWidth": false}}}%%')
 

@@ -1,3 +1,4 @@
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
 flowchart TB
     subgraph L["裸 HTTP 码：失控链"]
         l1["工具返回 Error: 500"] --> l2["模型无从归因"] --> l3["盲目重试 ×3"] --> l4["预算烧穿+仍失败"] --> l5["上报用户：无信息量的失败"]

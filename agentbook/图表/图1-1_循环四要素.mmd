@@ -1,9 +1,10 @@
 %% 图 1-1｜Agent 循环四要素（第 1 章）
 %% 导读：模型、工具、上下文、停止条件构成闭合回路；停止条件是唯一由代码单方面持有的一环。
 %% 渲染：mmdc -i 图1-1_循环四要素.mmd -o 图1-1_循环四要素.svg -b white
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart TB
     subgraph CODE["代码持有（可靠性保障的落点）"]
-        direction TB
+        direction LR
         CTX["② 上下文<br/>消息列表＝循环的唯一状态<br/>·追加什么 ·是否摘要 ·何时压缩"]
         STOP["④ 停止条件<br/>·模型声明完成（不可单独信任）<br/>·步数上限（必须有）<br/>·预算熔断（必须有）"]
         EXEC["③ 工具执行层<br/>·权限与审批 ·错误整形 ·结果摘要"]

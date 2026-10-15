@@ -1,5 +1,6 @@
 %% 图 17-2｜护栏纵深四层分层（第 17 章）
-flowchart TB
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart LR
     REQ["请求/外部内容"] --> G1["① 输入护栏：分类器/规则<br/>便宜、面广；对抗改写易绕过<br/>定位：卫生层，非防线"]
     G1 --> G2["② 行为护栏：动作序列策略<br/>速率异常/危险组合/不可逆确认门"]
     G2 --> G3["③ 输出护栏：PII/密钥形态/合规词表<br/>误杀痛点：合法引用被判违规"]

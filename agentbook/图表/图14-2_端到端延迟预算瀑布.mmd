@@ -1,7 +1,8 @@
 %% 图 14-2｜实时语音端到端延迟预算瀑布图（第 14 章）
 %% 用户停止说话 → 尾点检测 → ASR 终稿 → LLM 首 token → TTS 首字节 → 播放缓冲；总和逼近 1-1.5 秒。
 %% 数字为截至 2026-10 各厂商公开指标的典型区间【L3 数字】，采用前请复核当期状态。
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 70, "rankSpacing": 90, "padding": 18, "htmlLabels": false}}}%%
+flowchart TB
     T0["t=0<br/>用户停止说话"]
     T1["尾点检测<br/>~200 - 400ms<br/>超标处置：VAD+语义双判降级"]
     T2["ASR 终稿<br/>~100 - 300ms<br/>可被 partial 提前吃掉大半"]
