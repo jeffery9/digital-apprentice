@@ -538,11 +538,17 @@ def svg_to_png(svg_path, png_path, dpi=300):
                                   extra_args=['--quiet'])
             os.remove(tmp_svg)
         ok = os.path.isfile(png_path) and os.path.getsize(png_path) > 0
-        # 像素校验：源含中文但栅格结果几乎全白 → 文字被渲染器丢弃，判失败告警
+        # 像素校验：源含中文但栅格结果几乎全白 → 文字被渲染器丢弃，判失败告警。
+        # 注意先合成到白底再测墨色：cairosvg 输出 RGBA，若按原始灰度取像素，
+        # 透明区 alpha=0 会被误读为"黑"，导致空图也能通过校验（假阳性）。
         if ok and has_cjk_src:
             try:
                 from PIL import Image
                 with Image.open(png_path) as im:
+                    if 'A' in im.getbands():          # 透明通道合成到白底
+                        bg = Image.new('RGB', im.size, 'white')
+                        bg.paste(im.convert('RGB'), mask=im.getchannel('A'))
+                        im = bg
                     im = im.convert('L').resize((200, 200))
                     px = list(im.getdata())
                 ink = sum(1 for p in px if p < 200) / len(px)
