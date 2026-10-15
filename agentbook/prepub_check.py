@@ -37,7 +37,9 @@ import assemble_agentbook as AB   # 只取 BOOK_ORDER / VERSION / BOOK_TITLE 常
 EXPECT_CHAPTERS = 20
 EXPECT_PATTERN_CARDS = 55          # 去重后独立卡数（对外口径）
 EXPECT_DEMOS = 20                  # D-01 … D-20
-CHAPTER_WORD_CAP = 12000           # 每章上限 1.2 万字
+# 各章字数下限（＝目标×85%）；不设硬上限（作者指示 2026-10-16）：
+# 只要不低于最小字数即可接受；超限处置纪律保留为 INFO 提示，不判 WARN/FAIL。
+CHAPTER_SOFT_CAP = 12000           # 软上限参考值（原"每章上限 1.2 万字"）
 # 各章目标字数（策划案§六章节总表）；Z0 告警口径（作者指示 2026-10-14）：
 # **字数偏差只能多不能少**——低于目标 85%（偏少 >15%）为 FAIL（须扩写）；
 # 高于目标 115% 仅 WARN（登记即可，不要求减字）。
@@ -193,7 +195,7 @@ for f in ch_files:
     if miss:
         skel_miss.append((f, miss))
     wc = cn_chars(txt)
-    if wc > CHAPTER_WORD_CAP:
+    if wc > CHAPTER_SOFT_CAP:
         over_cap.append((f, wc))
     for m in re.finditer(r'图\s*(\d+)-(\d+)', txt):
         fig_nums[int(m.group(1))].append(int(m.group(2)))
@@ -204,10 +206,11 @@ rep('PASS' if not skel_miss else 'WARN', 'B1',
     f'八段式骨架：{len(ch_files) - len(skel_miss)}/{len(ch_files)} 章齐全'
     + ('' if not skel_miss else '；缺失 → ' + '；'.join(f'{f}缺{"/".join(m)}' for f, m in skel_miss[:4])),
     '骨架段名可作小标题或加粗引导词出现，但不得整段缺席（QWEN.md §四）')
-rep('PASS' if not over_cap else 'WARN', 'B2',
-    f'每章 ≤{CHAPTER_WORD_CAP} 字：' + ('全部达标' if not over_cap else
-    '；'.join(f'{f}={wc}' for f, wc in over_cap)),
-    '超限先按铁律一删重复，再删例子，最后才动原理')
+rep('PASS' if not over_cap else 'INFO', 'B2',
+    f'每章软上限参考 {CHAPTER_SOFT_CAP} 字（不设硬上限，作者指示 2026-10-16：不低于最小字数即可接受）：'
+    + ('全部达标' if not over_cap else
+       '仅登记，不要求减字 → ' + '；'.join(f'{f}={wc}' for f, wc in over_cap)),
+    '超限先按铁律一删重复，再删例子，最后才动原理（处置纪律保留，非硬性约束）')
 
 bad_fig = []
 for ch, nums in sorted(fig_nums.items()):
