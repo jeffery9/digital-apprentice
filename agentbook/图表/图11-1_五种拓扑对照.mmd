@@ -1,0 +1,34 @@
+%% 图 11-1｜多智能体五种拓扑对照（第 11 章）
+flowchart TB
+    subgraph T1["① 交接"]
+        direction LR
+        H1["Agent A"] -->|方向盘+上下文整体移交| H2["Agent B<br/>A 退出"]
+    end
+    subgraph T2["② 监督者"]
+        direction TB
+        S0["监督者"] -->|派发| S1["工人1"] & S2["工人2"] & S3["工人3"]
+        S1 & S2 & S3 -->|验收| S0
+    end
+    subgraph T3["③ 网状"]
+        direction LR
+        N1["A"] <-.-> N2["B"]
+        N2 <-.-> N3["C"]
+        N1 <-.-> N3
+    end
+    subgraph T4["④ 流水线"]
+        direction LR
+        L1["环节1"] -->|产物落盘| L2["环节2"] -->|产物落盘| L3["环节3"]
+    end
+    subgraph T5["⑤ 黑板"]
+        direction TB
+        BB[("黑板：共享介质")]
+        K1["节点1"] <--> BB
+        K2["节点2"] <--> BB
+        K3["节点3"] <--> BB
+    end
+    NOTE["头号失效模式：交接＝甩锅式移交｜监督者＝上下文瓶颈｜网状＝不可归因｜流水线＝僵化｜黑板＝并发写冲突"]
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class H1,H2,S0,S1,S2,S3,N1,N2,N3,L1,L2,L3,K1,K2,K3,BB col
+    class NOTE note

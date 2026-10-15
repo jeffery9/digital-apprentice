@@ -1,0 +1,20 @@
+%% 图 17-3｜agent 失败模式与传统故障时序对照（第 17 章）
+flowchart TB
+    subgraph UP["传统 SRE：确定性代码的随机故障"]
+        direction LR
+        F1["硬件/网络故障"] --> F2["显式报错"] --> F3["告警"] --> F4["定位修复"]
+    end
+    subgraph DN["agent 行为故障：概率性智能——都没有显式报错"]
+        direction LR
+        Q1["静默质量劣化<br/>探测：漂移检测+金样张基线"]
+        Q2["行为不稳定<br/>探测：区分方差与回归"]
+        Q3["级联幻觉<br/>探测：轨迹级评估 18.2"]
+        Q4["循环失控<br/>探测：重复签名告警 16.8"]
+        Q5["工具面腐烂<br/>探测：API 契约哨兵 12 章"]
+    end
+    NOTE["监控全绿 ≠ 系统健康：五条曲线的共同盲区是没有错误信号"]
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class F1,F2,F3,F4,Q1,Q2,Q3,Q4,Q5 col
+    class NOTE note
