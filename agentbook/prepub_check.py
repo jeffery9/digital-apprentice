@@ -52,9 +52,9 @@ DEMO_CHAPTER_MAP = {               # demo → 章（策划案§十）
     'D-13': 11, 'D-14': 12, 'D-15': 13, 'D-16': 13, 'D-17': 14,
     'D-18': 16, 'D-19': 17, 'D-20': 18,
 }
-CARDS_PER_CHAPTER = {              # 章内出现次数（合计 67）
-    1: 3, 2: 0, 3: 1, 4: 5, 5: 5, 6: 5, 7: 4, 8: 4, 9: 3, 10: 5,
-    11: 5, 12: 3, 13: 4, 14: 3, 15: 3, 16: 4, 17: 4, 18: 3, 19: 3, 20: 0,
+CARDS_PER_CHAPTER = {              # 章内出现次数（合计 69，含 2026-10-16 第 11 章新增群蜂卡、第 7 章扩写新增工具版本治理卡）
+    1: 3, 2: 0, 3: 1, 4: 5, 5: 5, 6: 5, 7: 5, 8: 4, 9: 3, 10: 5,
+    11: 6, 12: 3, 13: 4, 14: 3, 15: 3, 16: 4, 17: 4, 18: 3, 19: 3, 20: 0,
 }
 # 铁律一：机制 → (深挖章, 只许引用的章, 判别关键词)
 DEEP_DIVE = {
@@ -617,14 +617,25 @@ rep('PASS' if proj <= 240000 else 'WARN', 'Z1',
 # ══════════════════════════════════════════════════════════════
 # Z2 Markdown×中文排版（依据《中文文案排版指北》本书采用版 §一.4／§二.5）
 #   A 类：成对 ** 标记与中文正文之间夹空格 → CommonMark 不构成加粗，页面露裸星号；
-#   B 类：闭合 ** 前是全角句末点号、且其后紧跟非空白 → flanking 歧义，整对加粗失效。
-#   （B 类点号集含全角问号：python-markdown 3.x 实测 “…**？**汉字” 同样不渲染。）
+#   B 类（2026-10-16 修正判据，python-markdown 3.11.1 正反用例回归验证）：
+#     真违规当且仅当【闭合 ** 前一字符 ∈ 句末点号 。！？；：】且【该对内部无换行】
+#     且【闭侧紧跟汉字/字母】——此时右侧 ** 既非左流（后随词字符）又因前有点号
+#     不构成右流标点收尾，整对加粗失效、页面露裸星号。
+#     豁免形态（实测渲染正常，旧判据在此四类上假阳性）：
+#       **词**——、：**词**——、，**词**；、。**词（注）：**——
+#     即：闭合 ** 内侧不是点号时（—、：、，在 ** 外侧），或闭侧紧跟 ——/空白/换行
+#     等非标点字符时，均正常渲染；点号集须排除 ，、（枚举分隔符不构成 flanking 阻断）。
+#   已知残余假阳性（奇数标记行的贪心错配）：形如 "| **甲（注：**乙 ✅**（说明）" 的行，
+#     python-markdown 实际把第①对配对为 **…注：**（加粗成功）、第③标记作裸文本——
+#     判据按字面配对会命中中间段"闭前=：且闭后=汉字"。台账 L68 实测如此（非真失渲染），
+#     暂保留为待修项（修法＝先剔除未配对孤立标记再判，风险是漏报真违规，需单独回归）。
 #   代码围栏与行内代码内容跳过（与 book/fix_md_spacing.py 同口径）。
 #   修复：python3 ../book/fix_md_spacing.py 书稿/*.md --fix（或按本脚本报告人工移动点号）。
 print('\n═══ Markdown×中文排版（Z2）═══')
 _CJK_Z2 = ('\u4e00-\u9fff\u3000-\u303f\uff01-\uff5e'
            '\u2018\u2019\u201c\u201d\u2014\u2026')
-_DOT_Z2 = '。！？；：，、？'
+_DOT_Z2 = '。！？；：'          # 句末点号集；，、为枚举分隔符，实测不触发失渲染，剔除
+_WORD_Z2 = re.compile('[A-Za-z0-9\u4e00-\u9fff]')  # 闭侧"紧跟汉字/字母"判据
 _SP_Z2 = ' \u3000'
 
 def _strip_protected_z2(text):
@@ -657,15 +668,51 @@ def _z2_issues(masked):
             issues.append((j, '闭侧空格'))
     return issues
 
+def _pairwise_marks(masked):
+    # 按 CommonMark 左到右贪心配对 **（替代原“奇偶下标”法——后者在存在
+    # 未配对孤立标记的行上会错配出假阳性，如台账行内混排 ✅**／…）。
+    pos, res = 0, []
+    while True:
+        o = masked.find('**', pos)
+        if o < 0:
+            break
+        c = masked.find('**', o + 2)
+        if c < 0:
+            break
+        res.append((o, c))
+        pos = c + 2
+    return res
+
+def _z2_issues_pairwise(masked):
+    issues = []
+    for o, c in _pairwise_marks(masked):
+        # B 类修正判据（见上方注释块）：点号在闭合内侧 ∧ 对内无换行 ∧ 闭侧紧跟汉字/字母
+        if (c > 0 and masked[c - 1] in _DOT_Z2
+                and '\n' not in masked[o:c]
+                and c + 2 < len(masked) and _WORD_Z2.match(masked[c + 2])):
+            issues.append((c - 1, '标点闭合歧义'))
+            continue
+        mo = re.match(r'\*\*[' + _SP_Z2 + r']+(?=[' + _CJK_Z2 + r'])', masked[o:])
+        if mo:
+            issues.append((o, '开侧空格'))
+        j = c
+        while j > o + 2 and masked[j - 1] == ' ':
+            j -= 1
+        if j < c and masked[j - 1] in _CJK_Z2 + '”' and '\n' not in masked[j:c]:
+            issues.append((j, '闭侧空格'))
+    return issues
+
 z2_hits = []
 for f in sorted(os.listdir(SRC)):
     if not f.endswith('.md'):
         continue
     txt = read(os.path.join(SRC, f)) or ''
     masked = _strip_protected_z2(txt)
-    for pos, kind in _z2_issues(masked):
-        ln = txt.count('\n', 0, pos) + 1
-        z2_hits.append(f'{f}:L{ln}[{kind}]')
+    # 逐行判：_pairwise_marks 的跨行贪心配对会在奇数标记长行上漂移出假阳性；
+    # 而 markdown 渲染以行为单位（空行分段），故按行喂入与真值口径一致。
+    for lineno, line in enumerate(masked.split('\n'), 1):
+        for pos, kind in _z2_issues_pairwise(line):
+            z2_hits.append(f'{f}:L{lineno}[{kind}]')
 rep('PASS' if not z2_hits else 'FAIL', 'Z2',
     'Markdown 强调标记×中文标点排版全部合规（指北 §一.4／§二.5）' if not z2_hits
     else f'Markdown 标记×中文标点问题 {len(z2_hits)} 处 → ' + '；'.join(z2_hits[:8])
