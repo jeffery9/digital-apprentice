@@ -396,57 +396,9 @@ def _fc_zh_families():
     """返回本机 fontconfig 认可"含中文字形"的字体家族名集合。"""
     import subprocess
     try:
-def _fc_zh_families():
-    """返回本机 fontconfig 认可"含中文字形"的字体家族名集合。"""
-    import subprocess
-    try:
         out = subprocess.run(['fc-list', ':lang=zh', 'family'],
                              capture_output=True, text=True, timeout=10).stdout
     except Exception:
-        return set()
-    fams = set()
-    for line in out.splitlines():
-        for f in line.split(','):
-            f = f.strip()
-            if f:
-                fams.add(f)
-    return fams
-
-
-def _fc_has_zh(family):
-    """校验 family 是否真能取到中文字形：fc-match 解析结果的家族名必须出现在
-    fc-list :lang=zh 输出里。直接 fc-match 'Microsoft YaHei' 会静默兜底到
-    DejaVu Sans（无中文字形）——这正是"链首写了中文族名却仍出方框/丢字"的根因，
-    因此探测必须以"解析结果是否真的含中文字形"为准，而非族名写得像不像中文。"""
-    import subprocess
-    try:
-        fam = subprocess.run(['fc-match', '-f', '%{family[0]}', family],
-                             capture_output=True, text=True,
-                             timeout=10).stdout.split(',')[0].strip()
-        return fam if fam in _fc_zh_families() else None
-    except Exception:
-        return None
-
-
-def _build_cjk_font():
-    """返回构建栅格化时使用的 CJK 字体族名（本机真实有中文字形的第一个）。
-
-    候选顺序：优先无衬线黑体族（与图面风格一致），逐一经 _fc_has_zh 实证；
-    全部落空才退回 fc-match sans-serif 的结果（若其恰好含中文字形）。
-    """
-    for cand in ('Noto Sans CJK SC', 'Source Han Sans SC', 'WenQuanYi Zen Hei',
-                 'Microsoft YaHei', 'PingFang SC', 'SimHei', '宋体'):
-        fam = _fc_has_zh(cand)
-        if fam:
-            return fam
-    import subprocess
-    try:
-        fam = subprocess.run(['fc-match', '-f', '%{family[0]}', 'sans-serif'],
-                             capture_output=True, text=True,
-                             timeout=10).stdout.split(',')[0].strip()
-        return fam if fam in _fc_zh_families() else None
-    except Exception:
-        return None
         return set()
     fams = set()
     for line in out.splitlines():
@@ -500,9 +452,6 @@ _ZH_HEAD = _build_cjk_font()
 # 去重拼接：本机探测到的首项若已在默认链中出现，则不重复追加。
 # Word 端友好名（YaHei/PingFang/SimHei/宋体）保留在链尾作直通场景兜底；
 # 构建端真正取字形的是链首——由 svg_to_png 的方框检测保证不会静默放行。
-# 去重拼接：本机探测到的首项若已在默认链中出现，则不重复追加。
-# Word 端友好名（YaHei/PingFang/SimHei/宋体）保留在链尾作直通场景兜底；
-# 构建端真正取字形的是链首——由 svg_to_png 的方框检测保证不会静默放行。
 _DEFAULT_CHAIN = ('Noto Sans CJK SC,Source Han Sans SC,'
                   'Microsoft YaHei,PingFang SC,'
                   'WenQuanYi Zen Hei,SimHei,宋体')
@@ -511,48 +460,6 @@ SVG_CJK_FALLBACK = (_ZH_HEAD + ',' + _DEFAULT_CHAIN
                     else _DEFAULT_CHAIN)
 
 SVG_BUILD_CJK_FONT = _ZH_HEAD
-
-
-def _ensure_zh_font_assets():
-    """构建端中文字形兜底：fontconfig 查无含中文字形的可解析族时，拉取
-    Noto Sans CJK SC 注册进 ~/.fonts 并重建字体缓存，随后刷新模块内的字体链
-    全局量。保证 SVG→PNG 栅格化永远有中文字形可用——既不空白也不方框。"""
-    global _ZH_HEAD, SVG_CJK_FALLBACK, SVG_BUILD_CJK_FONT
-    if _build_cjk_font():
-        return True
-    import subprocess
-    import urllib.request
-    urls = (
-        'https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/'
-        'SimplifiedChinese/NotoSansCJKsc-Regular.otf',
-        'https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/OTF/'
-        'SimplifiedChinese/NotoSansCJKsc-Regular.otf',
-    )
-    fdir = os.path.join(os.path.expanduser('~'), '.fonts')
-    os.makedirs(fdir, exist_ok=True)
-    dst = os.path.join(fdir, 'NotoSansCJKsc-Regular.otf')
-    for u in urls:
-        try:
-            log(f'  · 本机无中文字体，拉取 Noto Sans CJK SC：{u[:60]}…')
-            req = urllib.request.Request(u, headers={'User-Agent': 'curl/8'})
-            with urllib.request.urlopen(req, timeout=180) as r, \
-                    open(dst, 'wb') as f:
-                shutil.copyfileobj(r, f)
-            if os.path.getsize(dst) > 1_000_000:
-                subprocess.run(['fc-cache', '-f', fdir],
-                               capture_output=True, timeout=60)
-                # 刷新模块级字体链（此前探测为空）
-                _ZH_HEAD = _build_cjk_font()
-                SVG_BUILD_CJK_FONT = _ZH_HEAD
-                SVG_CJK_FALLBACK = ((_ZH_HEAD + ',' + _DEFAULT_CHAIN)
-                                    if _ZH_HEAD else _DEFAULT_CHAIN)
-                if _ZH_HEAD:
-                    log(f'  ✓ 中文字形兜底就绪：{_ZH_HEAD}')
-                    return True
-            os.remove(dst)
-        except Exception as e:
-            log(f'    ! 字体下载失败：{e}')
-    return False
 
 
 def _ensure_zh_font_assets():
@@ -637,13 +544,6 @@ def _mermaid_fo_to_native_text(text):
                          for i, ln in enumerate(lines))
         family = (SVG_BUILD_CJK_FONT + ',' + SVG_CJK_FALLBACK
                   if SVG_BUILD_CJK_FONT else SVG_CJK_FALLBACK)
-        # font-weight 显式透传：fontconfig 的 family 级匹配不识别 "Bold" 风格名，
-        # 若节点标签是 <strong>/<b>（Mermaid htmlLabels 常见），不加粗则与图面
-        # 语义不符；Pango 对含中文实体字重的家族会正常取粗体 face。
-        fw = '700' if re.search(r'<(?:strong|b)\b', inner) else None
-        weight_attr = f' font-weight="{fw}"' if fw else ''
-        return ('<text font-family="%s"%s font-size="%g" text-anchor="%s">'
-                '%s</text>' % (family, weight_attr, fs, anchor, tspans))
         # font-weight 显式透传：fontconfig 的 family 级匹配不识别 "Bold" 风格名，
         # 若节点标签是 <strong>/<b>（Mermaid htmlLabels 常见），不加粗则与图面
         # 语义不符；Pango 对含中文实体字重的家族会正常取粗体 face。
@@ -934,13 +834,6 @@ def svg_to_png(svg_path, png_path, dpi=300):
     经 opticon/Imager 渲染，实测会把 CJK 文本整段丢弃（PNG 里连方框都没有），
     是旧版"SVG 嵌入 docx 中文丢失"的直接根因。全部路径失败则返回 False，
     由调用方决定回退策略。返回是否成功。
-    栅格化后做双重像素校验：源 SVG 含中文而 PNG 几乎全白 → 丢字判失败；
-    PNG 中存在成批 .notdef 空心方框 → 字体环境缺中文字形判失败（防"方框"静默出厂）。
-    cairosvg 缺失时走 node+sharp 光栅化（Sharp 内嵌 librsvg，支持 foreignObject
-    原生渲染与 fontconfig 回退）——**不再用 pandoc 转 PNG**：pandoc 的 svg2png
-    经 opticon/Imager 渲染，实测会把 CJK 文本整段丢弃（PNG 里连方框都没有），
-    是旧版"SVG 嵌入 docx 中文丢失"的直接根因。全部路径失败则返回 False，
-    由调用方决定回退策略。返回是否成功。
     """
     try:
         import cairosvg
@@ -972,25 +865,11 @@ def svg_to_png(svg_path, png_path, dpi=300):
         out_w = max(1, int(round(vw * scale)))
         out_h = max(1, int(round(vh * scale)))
         rendered_by = None
-        out_w = max(1, int(round(vw * scale)))
-        out_h = max(1, int(round(vh * scale)))
-        rendered_by = None
         if cairosvg is not None:
             cairosvg.svg2png(bytestring=text.encode('utf-8'), write_to=png_path,
                              output_width=out_w, output_height=out_h)
             rendered_by = 'cairosvg'
-                             output_width=out_w, output_height=out_h)
-            rendered_by = 'cairosvg'
         else:
-            # sharp（librsvg）：支持 foreignObject 与 fontconfig 中文回退；
-            # 明确排除 pandoc——其 svg2png 渲染器会整段丢弃 CJK 文本（见文档）
-            if _sharp_render_png(text.encode('utf-8'), png_path, out_w, out_h):
-                rendered_by = 'sharp(librsvg)'
-        if rendered_by is None:
-            log(f'  ! SVG 栅格化失败（{os.path.basename(svg_path)}）：'
-                f'cairosvg 与 node+sharp 均不可用，不退回 pandoc'
-                f'（其渲染器丢 CJK 文本），请 pip install cairosvg 或 npm i sharp')
-            return False
             # sharp（librsvg）：支持 foreignObject 与 fontconfig 中文回退；
             # 明确排除 pandoc——其 svg2png 渲染器会整段丢弃 CJK 文本（见文档）
             if _sharp_render_png(text.encode('utf-8'), png_path, out_w, out_h):
@@ -1018,18 +897,6 @@ def svg_to_png(svg_path, png_path, dpi=300):
                 if ink < 0.005:
                     log(f'  ! SVG 栅格化校验失败（{os.path.basename(svg_path)}）：'
                         f'PNG 近乎全白，中文可能未渲染，请检查 cairosvg 字体环境')
-                    return False
-            except Exception:
-                pass
-        # 方框校验：源含中文且 PNG 里成批出现 .notdef 空心方框 → 字体链取到了
-        # 无中文字形的西文字体（"不显示"修好了但"变方框"没修好），判失败。
-        if ok and has_cjk_src:
-            try:
-                if _png_has_notdef_box(png_path):
-                    log(f'  ! SVG 栅格化校验失败（{os.path.basename(svg_path)}）：'
-                        f'检测到 .notdef 空心方框，中文字形缺失；'
-                        f'当前构建字体={SVG_BUILD_CJK_FONT!r}，'
-                        f'请安装 Noto Sans CJK/WenQuanYi 或联网自动拉取后重试')
                     return False
             except Exception:
                 pass
