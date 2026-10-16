@@ -40,4 +40,12 @@ ul.toclist a:hover { color:var(--accent); }
 .hit { margin:1rem 0; }
 .hit a { color:var(--accent); font-weight:bold; }
 mark { background:#ffe9a8; }
-@media print { header.topbar,.pagenav { display:none; } }
+/* 防盗版：水印样式 */
+.watermark { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; opacity:0.03; }
+.watermark-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-30deg); font-size:3rem; color:#000; white-space:nowrap; }
+/* 防盗版：打印时显示版权信息 */
+@media print {
+  header.topbar,.pagenav { display:none; }
+  body::before { content:"《数字见习生》版权所有 © jeffery · 未经授权禁止传播"; display:block; text-align:center; padding:1rem; background:#ff0; color:#000; font-weight:bold; }
+  .watermark { opacity:0.08; }
+}
