@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>《数字见习生》课程介绍</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #2b2b2b;
+  overflow: hidden;
+}
+.slide {
+  width: 100vw;
+  height: 100vh;
+  display: none;
+  padding: 60px 80px;
+  background: white;
+  overflow-y: auto;
+}
+.slide.active { display: flex; flex-direction: column; }
+.slide-title {
+  font-size: 48px;
+  font-weight: bold;
+  color: #8b1a1a;
+  margin-bottom: 40px;
+  border-bottom: 4px solid #8b1a1a;
+  padding-bottom: 20px;
+}
+.slide-subtitle {
+  font-size: 32px;
+  color: #555;
+  margin-bottom: 30px;
+}
+.content { flex: 1; font-size: 24px; line-height: 1.8; }
+.content ul { margin-left: 40px; margin-top: 20px; }
+.content li { margin-bottom: 15px; }
+.highlight { 
+  background: #fff3cd; 
+  border-left: 6px solid #ffc107; 
+  padding: 20px; 
+  margin: 20px 0;
+  font-size: 26px;
+}
+.key-point {
+  background: #d1ecf1;
+  border-left: 6px solid #17a2b8;
+  padding: 20px;
+  margin: 20px 0;
+  font-size: 26px;
+}
+.warning {
+  background: #f8d7da;
+  border-left: 6px solid #dc3545;
+  padding: 20px;
+  margin: 20px 0;
+  font-size: 26px;
+}
+.success {
+  background: #d4edda;
+  border-left: 6px solid #28a745;
+  padding: 20px;
+  margin: 20px 0;
+  font-size: 26px;
+}
+.two-column { display: flex; gap: 40px; margin-top: 30px; }
+.three-column { display: flex; gap: 30px; margin-top: 30px; }
+.column { flex: 1; }
+.cover-slide {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+.cover-slide h1 { font-size: 72px; margin-bottom: 30px; }
+.cover-slide p { font-size: 36px; margin-bottom: 20px; }
+.nav {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  gap: 15px;
+  z-index: 1000;
+}
+.nav button {
+  padding: 12px 24px;
+  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  color: #667eea;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: all 0.3s;
+}
+.nav button:hover { background: white; transform: translateY(-2px); }
+.page-num {
+  position: fixed;
+  bottom: 30px;
+  left: 30px;
+  font-size: 20px;
+  color: white;
+  background: rgba(0,0,0,0.5);
+  padding: 10px 20px;
+  border-radius: 20px;
+}
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 22px; }
+th { background: #8b1a1a; color: white; padding: 15px; text-align: left; }
+td { padding: 15px; border: 1px solid #ddd; }
+tr:nth-child(even) { background: #f9f9f9; }
+.diagram {
+  background: #f5f5f5;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  padding: 30px;
+  margin: 20px 0;
+  text-align: center;
+  font-size: 22px;
+}
+.price-tag {
+  display: inline-block;
+  background: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 28px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+.target-audience {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+</style>
+</head>
+<body>
+
+<!-- 第 1 页：封面 -->
+<div class="slide cover-slide active">
+  <h1>《数字见习生》</h1>
+  <p>写给无编程经验读者的 AI Agent 入门课</p>
+  <p style="font-size: 32px; margin-top: 40px;">不懂编程，也能理解和使用 AI Agent</p>
+  <p style="font-size: 28px; margin-top: 60px;">作者：jeffery</p>
+  <p style="font-size: 24px; margin-top: 20px;">联系：jeffery9@gmail.com</p>
+</div>
+
+<!-- 第 2 页：课程定位 -->
+<div class="slide">
+  <div class="slide-title">课程定位</div>
+  <div class="content">
+    <p class="slide-subtitle">一门零代码的 AI Agent 实战课程</p>
+    <div class="target-audience">
+      <h3 style="font-size: 36px; margin-bottom: 20px;">🎯 两大目标人群</h3>
+      <div class="two-column">
+        <div class="column">
+          <div class="highlight" style="background: rgba(255,255,255,0.2); color: white;">
+            <strong>📚 学生群体</strong><br>
+            大学生、研究生<br>
+            提升学习效率，组装自己的数字助理
+          </div>
+        </div>
+        <div class="column">
+          <div class="highlight" style="background: rgba(255,255,255,0.2); color: white;">
+            <strong>💼 职场人员</strong><br>
+            产品经理、运营、教师、培训师<br>
+            用 AI Agent 提升工作效率，转型 AI 时代
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="key-point" style="margin-top: 30px;">
+      <strong>共同特点</strong>：无编程经验，但想系统掌握 AI Agent
+    </div>
+  </div>
+</div>
+
+<!-- 第 3 页：学生市场的痛点 -->
+<div class="slide">
+  <div class="slide-title">学生市场的痛点</div>
+  <div class="content">
+    <div class="warning">
+      <strong>痛点一：学习效率低</strong><br>
+      整理作业、查资料、写综述耗费大量时间<br>
+      → 需要 AI 助理帮忙处理重复性工作
+    </div>
+    <div class="warning">
+      <strong>痛点二：AI 使用停留在聊天层面</strong><br>
+      只会问问题，不会让 AI 办事<br>
+      → 需要理解 Agent 的设计思想
+    </div>
+    <div class="warning">
+      <strong>痛点三：担心被 AI 替代</strong><br>
+      焦虑但不知道如何行动<br>
+      → 需要掌握与 AI 协作的技能
+    </div>
+    <div class="success" style="margin-top: 30px;">
+      <strong>本课程的价值</strong>：让学生成为"会用 AI 办事"的第二种使用者
+    </div>
+  </div>
+</div>
+
+<!-- 第 4 页：职场市场的痛点 -->
+<div class="slide">
+  <div class="slide-title">职场市场的痛点</div>
+  <div class="content">
+    <div class="warning">
+      <strong>痛点一：工作效率瓶颈</strong><br>
+      重复性工作占据大量时间（整理文档、查资料、拟通知）<br>
+      → 需要 AI Agent 自动化处理
+    </div>
+    <div class="warning">
+      <strong>痛点二：AI 转型焦虑</strong><br>
+      知道 AI 重要，但不知道从何入手<br>
+      → 需要系统化的学习路径
+    </div>
+    <div class="warning">
+      <strong>痛点三：缺乏实操能力</strong><br>
+      看过很多 AI 技巧，但无法落地<br>
+      → 需要动手组装自己的 Agent 系统
+    </div>
+    <div class="success" style="margin-top: 30px;">
+      <strong>本课程的价值</strong>：让职场人员掌握 AI Agent 实操技能，提升竞争力
+    </div>
+  </div>
+</div>
+
+<!-- 第 5 页：课程特色 -->
+<div class="slide">
+  <div class="slide-title">课程三大特色</div>
+  <div class="content">
+    <div class="three-column">
+      <div class="column">
+        <div class="success">
+          <h3 style="text-align: center; font-size: 32px;">🚫<br>零代码</h3>
+          <p style="margin-top: 20px;">全书不出现一行代码<br>所有机制用比喻、流程图和生活案例讲清</p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="success">
+          <h3 style="text-align: center; font-size: 32px;">📊<br>成体系</h3>
+          <p style="margin-top: 20px;">Agent 工程完整版图<br>循环、工具、记忆、检索、协作、安全</p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="success">
+          <h3 style="text-align: center; font-size: 32px;">🎯<br>有立场</h3>
+          <p style="margin-top: 20px;">不吹不黑<br>每个模式都讲清什么时候好用、什么时候翻车</p>
+        </div>
+      </div>
+    </div>
+    <div class="highlight" style="margin-top: 40px; text-align: center; font-size: 32px;">
+      <strong>三段教学法：先入门 → 再动手 → 然后深入</strong>
+    </div>
+  </div>
+</div>
+
+<!-- 第 6 页：课程结构 -->
+<div class="slide">
+  <div class="slide-title">课程结构</div>
+  <div class="content">
+    <table>
+      <tr>
+        <th>阶段</th>
+        <th>内容</th>
+        <th>时长</th>
+        <th>目标</th>
+      </tr>
+      <tr>
+        <td><strong>入门</strong></td>
+        <td>第 1 章：30 分钟讲完必读前置</td>
+        <td>1 小时</td>
+        <td>建立直觉</td>
+      </tr>
+      <tr>
+        <td><strong>动手</strong></td>
+        <td>第一篇 6 章：逐构件实战</td>
+        <td>12-15 小时</td>
+        <td>会用</td>
+      </tr>
+      <tr>
+        <td><strong>深入</strong></td>
+        <td>第二篇 7 章：原理手册</td>
+        <td>按需学习</td>
+        <td>懂为什么</td>
+      </tr>
+      <tr>
+        <td><strong>清醒</strong></td>
+        <td>第三篇 2 章：边界与伦理</td>
+        <td>3-4 小时</td>
+        <td>敢于定规矩</td>
+      </tr>
+    </table>
+    <div class="key-point" style="margin-top: 30px;">
+      <strong>总计</strong>：15 章 + 7 个附录 · 约 21 万字符 · 69 幅原创插画
+    </div>
+  </div>
+</div>
+
+<!-- 第 7 页：五大构件 -->
+<div class="slide">
+  <div class="slide-title">五大构件：像搭积木一样组装 Agent</div>
+  <div class="content">
+    <table>
+      <tr>
+        <th>构件</th>
+        <th>比喻</th>
+        <th>学生场景</th>
+        <th>职场场景</th>
+      </tr>
+      <tr>
+        <td><strong>① 员工手册</strong></td>
+        <td>入职培训手册</td>
+        <td>课程秘书</td>
+        <td>会议助理</td>
+      </tr>
+      <tr>
+        <td><strong>② 资料室</strong></td>
+        <td>档案柜</td>
+        <td>课程资料库</td>
+        <td>项目知识库</td>
+      </tr>
+      <tr>
+        <td><strong>③ 操作手册</strong></td>
+        <td>SOP 流程卡</td>
+        <td>文献综述技能</td>
+        <td>报告生成技能</td>
+      </tr>
+      <tr>
+        <td><strong>④ 专职助理</strong></td>
+        <td>分工小队</td>
+        <td>研究小队</td>
+        <td>项目团队</td>
+      </tr>
+      <tr>
+        <td><strong>⑤ 流水线</strong></td>
+        <td>装配线</td>
+        <td>作业处理流程</td>
+        <td>文档审批流程</td>
+      </tr>
+    </table>
+    <p class="highlight" style="margin-top: 30px;">装构件不需要编程——你在文档软件里就会写</p>
+  </div>
+</div>
+
+<!-- 第 8 页：学生能获得什么 -->
+<div class="slide">
+  <div class="slide-title">学生能获得什么？</div>
+  <div class="content">
+    <div class="success">
+      <strong>🎓 学习效率提升</strong><br>
+      • 组装"课程秘书"：自动整理作业、调整时间、起草通知<br>
+      • 搭建"资料室"：快速查资料、写综述<br>
+      • 设计"工作流"：自动化处理重复性任务
+    </div>
+    <div class="success">
+      <strong>💡 理解 AI 本质</strong><br>
+      • 记住大脑的三个事实<br>
+      • 看懂工作循环和任务简报包<br>
+      • 知道 AI 什么时候好用、什么时候翻车
+    </div>
+    <div class="success">
+      <strong>🚀 竞争力提升</strong><br>
+      • 成为"会用 AI 办事"的第二种使用者<br>
+      • 掌握与 AI 协作的技能<br>
+      • 为未来职业发展打下基础
+    </div>
+  </div>
+</div>
+
+<!-- 第 9 页：职场人员能获得什么 -->
+<div class="slide">
+  <div class="slide-title">职场人员能获得什么？</div>
+  <div class="content">
+    <div class="success">
+      <strong>⚡ 工作效率飞跃</strong><br>
+      • 组装"会议助理"：自动整理纪要、跟进任务<br>
+      • 搭建"项目知识库"：快速检索历史经验<br>
+      • 设计"审批流程"：自动化文档处理
+    </div>
+    <div class="success">
+      <strong>🔄 职业转型准备</strong><br>
+      • 系统理解 AI Agent 的设计思想<br>
+      • 掌握组装 Agent 的实操技能<br>
+      • 为 AI 时代的职业转型做准备
+    </div>
+    <div class="success">
+      <strong>🎯 解决实际问题</strong><br>
+      • 不再停留在"聊天 AI"层面<br>
+      • 能让 AI 真正"办事"<br>
+      • 提升工作质量和效率
+    </div>
+  </div>
+</div>
+
+<!-- 第 10 页：实验驱动学习 -->
+<div class="slide">
+  <div class="slide-title">实验驱动学习</div>
+  <div class="content">
+    <p class="slide-subtitle">每章都有实验，翻车是最好的学习材料</p>
+    <div class="two-column">
+      <div class="column">
+        <div class="highlight">
+          <strong>📝 实验记录单</strong><br><br>
+          每个任务记一行：<br>
+          • 预期是什么<br>
+          • 实际给了什么<br>
+          • 惊喜或翻车<br>
+          • 原因猜想
+        </div>
+      </div>
+      <div class="column">
+        <div class="highlight">
+          <strong>🎯 学习要求</strong><br><br>
+          • 至少两个惊喜<br>
+          • 至少两个翻车<br>
+          • 翻车原因要落到"手册/材料/流程"<br>
+          • 不写"它笨"
+        </div>
+      </div>
+    </div>
+    <p class="key-point" style="margin-top: 30px;">
+      翻车不是失败，是本章最重要的学习材料
+    </p>
+  </div>
+</div>
+
+<!-- 第 11 页：核心概念 -->
+<div class="slide">
+  <div class="slide-title">核心概念：大脑的三个事实</div>
+  <div class="content">
+    <p class="slide-subtitle">大语言模型（LLM）= 关在小黑屋里的天才大脑</p>
+    <div class="warning">
+      <strong>事实一：它只能看到你递给它的材料</strong><br>
+      推论：你没说的，它就不知道 → 所以要写员工手册
+    </div>
+    <div class="warning">
+      <strong>事实二：它见完即忘</strong><br>
+      每次对话，对它来说都是初见 → 所以要建资料室
+    </div>
+    <div class="warning">
+      <strong>事实三：它靠"算概率"接话，所以会胡说</strong><br>
+      绝大多数时候出色，偶尔一本正经地胡说 → 所以要设规矩
+    </div>
+    <div class="highlight" style="margin-top: 30px;">
+      Agent 的全部秘密 = 围绕大脑建的两项基本制度：<strong>工作循环 + 任务简报包</strong>
+    </div>
+  </div>
+</div>
+
+<!-- 第 12 页：安全带三条 -->
+<div class="slide">
+  <div class="slide-title">安全带三条</div>
+  <div class="content">
+    <p class="slide-subtitle">第一次动手之前，先系安全带</p>
+    <div class="warning">
+      <strong>第一条：别喂隐私</strong><br>
+      递出去的材料就可能被存储、被滥用、被泄露<br>
+      做法：交出去之前先脱敏（姓名换字母、删证件号）
+    </div>
+    <div class="warning">
+      <strong>第二条：别让它擅自做重大决定</strong><br>
+      AI 会犯错，错误经过"自动执行"会被放大成事故<br>
+      做法：涉及钱、删除、对外发送的操作，一律由你确认
+    </div>
+    <div class="warning">
+      <strong>第三条：它说的都要核验</strong><br>
+      概率接话的副产品就是幻觉<br>
+      做法：关键事实必查证，引用条条必核对
+    </div>
+  </div>
+</div>
+
+<!-- 第 13 页：配套资源 -->
+<div class="slide">
+  <div class="slide-title">配套资源</div>
+  <div class="content">
+    <div class="success">
+      <strong>📖 在线阅读</strong><br>
+      https://jeffery9.github.io/digital-apprentice/<br>
+      分篇阅读 + 单页全书 + 全文搜索
+    </div>
+    <div class="success">
+      <strong>👨‍🏫 教师指南</strong><br>
+      • 32 课时翻转课堂方案<br>
+      • 实验记录单模板<br>
+      • 课程大纲与教学设计<br>
+      联系作者获取
+    </div>
+    <div class="success">
+      <strong>🛠️ 工作台配置</strong><br>
+      • 指定工作台：Qwen Code（免费开源）<br>
+      • B 线做法：对话 AI 自定义助理<br>
+      • 两条轨道构件逻辑完全一致
+    </div>
+  </div>
+</div>
+
+<!-- 第 14 页：课程定价建议 -->
+<div class="slide">
+  <div class="slide-title">课程定价建议</div>
+  <div class="content">
+    <div class="two-column">
+      <div class="column">
+        <div class="target-audience">
+          <h3 style="font-size: 32px; margin-bottom: 20px;">📚 学生版</h3>
+          <div class="price-tag">¥ 99 - 199</div>
+          <ul style="margin-top: 20px; font-size: 22px;">
+            <li>完整课程内容</li>
+            <li>实验记录单模板</li>
+            <li>在线答疑社群</li>
+            <li>结业证书</li>
+          </ul>
+        </div>
+      </div>
+      <div class="column">
+        <div class="target-audience">
+          <h3 style="font-size: 32px; margin-bottom: 20px;">💼 职场版</h3>
+          <div class="price-tag">¥ 299 - 499</div>
+          <ul style="margin-top: 20px; font-size: 22px;">
+            <li>完整课程内容</li>
+            <li>职场案例库</li>
+            <li>1 对 1 辅导（可选）</li>
+            <li>企业内训定制</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="key-point" style="margin-top: 30px;">
+      <strong>机构合作</strong>：欢迎高校、培训机构洽谈批量采购与定制开发
+    </div>
+  </div>
+</div>
+
+<!-- 第 15 页：合作模式 -->
+<div class="slide">
+  <div class="slide-title">合作模式</div>
+  <div class="content">
+    <div class="three-column">
+      <div class="column">
+        <div class="success">
+          <h3 style="text-align: center; font-size: 28px;">🏫<br>高校合作</h3>
+          <ul style="margin-top: 20px; font-size: 20px;">
+            <li>课程采用</li>
+            <li>教学合作</li>
+            <li>教材定制</li>
+            <li>教师培训</li>
+          </ul>
+        </div>
+      </div>
+      <div class="column">
+        <div class="success">
+          <h3 style="text-align: center; font-size: 28px;">🏢<br>机构合作</h3>
+          <ul style="margin-top: 20px; font-size: 20px;">
+            <li>培训课程开发</li>
+            <li>讲师认证</li>
+            <li>企业内训</li>
+            <li>联合推广</li>
+          </ul>
+        </div>
+      </div>
+      <div class="column">
+        <div class="success">
+          <h3 style="text-align: center; font-size: 28px;">🤖<br>厂商合作</h3>
+          <ul style="margin-top: 20px; font-size: 20px;">
+            <li>产品集成</li>
+            <li>联合推广</li>
+            <li>定制版本</li>
+            <li>案例共建</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="highlight" style="margin-top: 40px; text-align: center; font-size: 28px;">
+      <strong>联系方式</strong>：jeffery9@gmail.com
+    </div>
+  </div>
+</div>
+
+<!-- 第 16 页：一句话总结 -->
+<div class="slide">
+  <div class="slide-title">一句话总结</div>
+  <div class="content" style="display: flex; justify-content: center; align-items: center; font-size: 36px;">
+    <div class="highlight" style="text-align: center; font-size: 40px;">
+      <strong>大脑是厂商给的，制度是你设计的</strong><br>
+      <span style="font-size: 32px;">——这就是 Agent 的全部秘密</span>
+    </div>
+  </div>
+</div>
+
+<!-- 第 17 页：封底 -->
+<div class="slide cover-slide">
+  <h1>谢谢！</h1>
+  <p>《数字见习生》</p>
+  <p style="font-size: 32px; margin-top: 40px;">不懂编程，也能理解和使用 AI Agent</p>
+  <p style="font-size: 28px; margin-top: 60px;">作者：jeffery</p>
+  <p style="font-size: 24px; margin-top: 20px;">jeffery9@gmail.com</p>
+  <p style="font-size: 22px; margin-top: 40px;">https://jeffery9.github.io/digital-apprentice/</p>
+</div>
+
+<div class="nav">
+  <button onclick="prevSlide()">← 上一页</button>
+  <button onclick="nextSlide()">下一页 →</button>
+</div>
+
+<div class="page-num" id="pageNum">1 / 17</div>
+
+<script>
+let currentSlide = 0;
+const slides = document.querySelectorAll('.slide');
+const totalSlides = slides.length;
+
+function showSlide(n) {
+  slides[currentSlide].classList.remove('active');
+  currentSlide = (n + totalSlides) % totalSlides;
+  slides[currentSlide].classList.add('active');
+  document.getElementById('pageNum').textContent = (currentSlide + 1) + ' / ' + totalSlides;
+}
+
+function nextSlide() { showSlide(currentSlide + 1); }
+function prevSlide() { showSlide(currentSlide - 1); }
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+});
+</script>
+
+</body>
+</html>
