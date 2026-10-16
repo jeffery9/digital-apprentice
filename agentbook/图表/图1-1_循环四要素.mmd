@@ -1,0 +1,27 @@
+%% 图 1-1｜Agent 循环四要素（第 1 章）
+%% 导读：模型、工具、上下文、停止条件构成闭合回路；停止条件是唯一由代码单方面持有的一环。
+%% 渲染：mmdc -i 图1-1_循环四要素.mmd -o 图1-1_循环四要素.svg -b white
+flowchart LR
+    subgraph CODE["代码持有（可靠性保障的落点）"]
+        direction TB
+        CTX["② 上下文<br/>消息列表＝循环的唯一状态<br/>·追加什么 ·是否摘要 ·何时压缩"]
+        STOP["④ 停止条件<br/>·模型声明完成（不可单独信任）<br/>·步数上限（必须有）<br/>·预算熔断（必须有）"]
+        EXEC["③ 工具执行层<br/>·权限与审批 ·错误整形 ·结果摘要"]
+    end
+    subgraph MODEL["模型持有（只做下一 token 预测）"]
+        LLM["① 模型<br/>无状态 · 不知自己在循环里<br/>无法自我约束"]
+    end
+
+    CTX -- "发送上下文" --> LLM
+    LLM -- "文本 → 触发停止判定" --> STOP
+    LLM -- "工具调用请求（结构化输出）" --> EXEC
+    EXEC -- "结果作为新消息追加" --> CTX
+    STOP -- "未达上限：再问一次" --> CTX
+    STOP -- "达上限：失败/降级/升级人工" --> OUT(["退出循环"])
+
+    classDef code fill:#f2f5f9,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef model fill:#fff,stroke:#33475b,stroke-width:1.6px,color:#1a1a1a
+    classDef out fill:#fff,stroke:#33475b,stroke-dasharray:4 3,color:#1a1a1a
+    class CTX,STOP,EXEC code
+    class LLM model
+    class OUT out

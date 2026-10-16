@@ -1,0 +1,33 @@
+%% 图 2-3｜agent 系统 vs 微服务 vs 工作流引擎（第 2 章 2.5 节）
+%% 四行对照：控制流所有权／状态主要载体／失败与恢复／变更影响面与测试
+%% 灰阶区分三列，不依赖颜色；第四行"变更影响面不可静态分析"是本章要管理层看到的一格
+flowchart TB
+    subgraph MS["传统微服务"]
+        direction TB
+        MS1["控制流：代码（编译期确定）"]
+        MS2["状态：数据库（持久·可查询·有 schema）"]
+        MS3["失败：异常／超时／部分提交 → 重试或补偿"]
+        MS4["变更影响面：可用调用图分析<br/>测试：单元／集成＋覆盖率"]
+        MS1 --- MS2 --- MS3 --- MS4
+    end
+    subgraph WF["工作流引擎"]
+        direction TB
+        WF1["控制流：代码＋配置（部署期确定）"]
+        WF2["状态：引擎状态表（持久·可查询）"]
+        WF3["失败：卡在某节点 → 从节点重跑"]
+        WF4["变更影响面：可用流程图分析<br/>测试：流程用例"]
+        WF1 --- WF2 --- WF3 --- WF4
+    end
+    subgraph AG["agent 系统"]
+        direction TB
+        AG1["控制流：部分由模型在运行时决定"]
+        AG2["状态：大量活在上下文窗口（易失·不可查询·无 schema）"]
+        AG3["失败：走了一条没人预料到的路径 → 检查点＋上下文重建"]
+        AG4["变更影响面：不可静态分析（改一行 Prompt 可能改整条路径）<br/>测试：评估集＋轨迹回放，覆盖率概念部分失效"]
+        AG1 --- AG2 --- AG3 --- AG4
+    end
+    MS ~~~ WF ~~~ AG
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef hot fill:#eef1f5,stroke:#1a1a1a,stroke-width:1.8px,color:#1a1a1a
+    class MS1,MS2,MS3,MS4,WF1,WF2,WF3,WF4,AG1,AG2,AG3 col
+    class AG4 hot

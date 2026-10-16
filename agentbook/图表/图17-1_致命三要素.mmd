@@ -1,0 +1,22 @@
+%% 图 17-1｜致命三要素交集（第 17 章）
+flowchart TB
+    P["私有数据可访问<br/>（钥匙）"]
+    U["不可信内容进入决策路径<br/>（带虫洞的文档）"]
+    E["外发通道存在<br/>（开门箭头：HTTP/邮件/传文件）"]
+    X["注入得逞区＝三者同时在场<br/>缺任何一个，链条断掉"]
+    P --- X
+    U --- X
+    E --- X
+    D1["数据环消减：权限最小化 17.4"]
+    D2["内容环消减：低信任围栏与污点标记 13.9/17.3"]
+    D3["外发环消减：网络出口白名单 15.3＋确认门 7.5"]
+    C["结论：防御＝让三环永不同时闭合，而非证明模型免疫<br/>组合审计问题，不是说服问题"]
+    P -.-> D1
+    U -.-> D2
+    E -.-> D3
+    X --- C
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class P,U,E col
+    class X,D1,D2,D3,C note

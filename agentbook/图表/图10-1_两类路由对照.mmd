@@ -1,0 +1,28 @@
+%% 图 10-1｜工作流路由与模型路由对照（第 10 章）
+%% 左栏：选管线；右栏：选算力；底部标注嵌套关系。
+flowchart LR
+    subgraph WF["工作流路由：选的是管线"]
+        direction TB
+        W0["输入请求"] --> W1["分类器<br/>决策变量：任务语义"]
+        W1 --> W2["分支注册表"]
+        W2 --> W3["投诉分支<br/>情绪话术库"]
+        W2 --> W4["技术分支<br/>诊断工具集"]
+        W2 --> W5["兜底分支<br/>置信度低于阈值"]
+        W6["失效表现：错分支＝答非所问<br/>输出：分支标识"]
+    end
+
+    subgraph MR["模型路由：选的是算力"]
+        direction TB
+        M0["待推理请求"] --> M1["路由器<br/>决策变量：难度×能力画像×成本预算"]
+        M1 --> M2["旗舰模型"]
+        M1 --> M3["小模型"]
+        M1 --> M4["专用模型"]
+        M5["失效表现：错模型＝能力不足或过度付费<br/>输出：模型名"]
+    end
+
+    NEST["可嵌套：每条工作流分支内部各自做模型路由<br/>纪律：两张决策表必须分开维护"]
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class W0,W1,W2,W3,W4,W5,M0,M1,M2,M3,M4 col
+    class W6,M5,NEST note

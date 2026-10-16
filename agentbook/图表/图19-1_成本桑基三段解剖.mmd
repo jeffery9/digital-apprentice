@@ -1,0 +1,28 @@
+%% 图 19-1｜任务成本桑基三段解剖（第 19 章）
+flowchart LR
+    subgraph A["第一段：任务类型流入"]
+        T1["简单查询 60%"]
+        T2["常规工单 30%"]
+        T3["复杂长任务 5%—5%任务吃掉一半账单"]
+    end
+    subgraph B["第二段：步骤类别"]
+        S1["规划"]
+        S2["执行循环<br/>（步数×上下文平方效应）"]
+        S3["验证/judge"]
+        S4["重建税<br/>（跨天恢复六件套）"]
+    end
+    subgraph C["第三段：模型档位汇入账单"]
+        M1["旗舰档"]
+        M2["中档"]
+        M3["轻量档＋缓存命中"]
+        BILL["月账单"]
+    end
+    T1 --> S2 --> M3
+    T2 --> S1 & S2 --> M2
+    T3 --> S1 & S2 & S3 & S4 --> M1
+    M1 & M2 & M3 --> BILL
+    X["看不见的钱：影子双跑·judge 全量·重试乘数<br/>——常备栏目，不进报表就永远隐身"] -.-> BILL
+    classDef hot fill:#fdeaea,stroke:#c0392b,color:#1a1a1a
+    classDef cool fill:#eaf3ea,stroke:#3a7d44,color:#1a1a1a
+    class T3,S2,S4,BILL,X hot
+    class T1,M3 cool

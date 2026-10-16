@@ -1,0 +1,13 @@
+%% 图 17-2｜护栏纵深四层分层（第 17 章）
+flowchart TB
+    REQ["请求/外部内容"] --> G1["① 输入护栏：分类器/规则<br/>便宜、面广；对抗改写易绕过<br/>定位：卫生层，非防线"]
+    G1 --> G2["② 行为护栏：动作序列策略<br/>速率异常/危险组合/不可逆确认门"]
+    G2 --> G3["③ 输出护栏：PII/密钥形态/合规词表<br/>误杀痛点：合法引用被判违规"]
+    G3 --> G4["④ 预算护栏：token/费用/时长触顶即停<br/>专治合法的慢性自杀"]
+    G4 --> OUT["放行"]
+    NOTE["组合换空间：低置信信号→升格审查；高置信硬规则→一票否决<br/>误杀率伤可用性、漏杀率伤安全，两指标分开盯"]
+
+    classDef col fill:#fff,stroke:#33475b,stroke-width:1.2px,color:#1a1a1a
+    classDef note fill:#f2f5f9,stroke:#c0392b,stroke-width:1.4px,color:#1a1a1a,stroke-dasharray:5 3
+    class REQ,G1,G2,G3,G4,OUT col
+    class NOTE note
