@@ -487,9 +487,19 @@ def main():
 
     outdir = DOCS_DIR
     img_dir = os.path.join(outdir, 'images')
+    # 备份 slides.html（如果存在）
+    slides_backup = None
+    slides_path = os.path.join(outdir, 'slides.html')
+    if os.path.isfile(slides_path):
+        with open(slides_path, 'r', encoding='utf-8') as f:
+            slides_backup = f.read()
     if os.path.isdir(outdir):
         shutil.rmtree(outdir)
     os.makedirs(img_dir if do_images else outdir, exist_ok=True)
+    # 恢复 slides.html
+    if slides_backup is not None:
+        with open(slides_path, 'w', encoding='utf-8') as f:
+            f.write(slides_backup)
 
     order = ab.BOOK_ORDER if ab is not None else DEFAULT_ORDER
     log('== 构建《%s》网页版电子书 → %s' % (BOOK_TITLE, outdir))
@@ -530,7 +540,8 @@ def main():
     home = ('<h1>《%s》</h1><p>%s</p>'
             '<p>作者：jeffery · 联系：<a href="mailto:jeffery9@gmail.com">jeffery9@gmail.com</a></p>'
             '<p>版本 %s · 构建于 %s · <a href="toc.html">分篇阅读（推荐）</a>'
-            ' · <a href="search.html">全书搜索</a></p>'
+            ' · <a href="search.html">全书搜索</a>'
+            ' · <a href="slides.html">课程介绍幻灯片</a></p>'
             '<p><strong>商务合作</strong>：欢迎 AI Agent 厂商、高校教师、培训机构联系合作</p>'
             '<div style="background:#fff3cd;border:2px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:8px;">'
             '<strong>⚠ 版权声明</strong>：本书内容受版权保护，仅限个人学习使用。'
