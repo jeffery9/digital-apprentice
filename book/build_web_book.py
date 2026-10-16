@@ -456,20 +456,13 @@ def main():
     write(os.path.join(outdir, 'toc.html'),
           page('目录', '<h1>目　录</h1><ul class="toclist">' + ''.join(items) + '</ul>'))
 
-    # index.html：单页全书 + 下载入口
+    # index.html：单页全书（无下载入口）
     single = '\n'.join(group_body(g) for g in groups)
-    dl = []
-    for label, src_path in (('Markdown 合并版', MERGED_MD),
-                            ('Word 文档（docx）', MERGED_DOCX)):
-        if os.path.isfile(src_path):
-            fn = os.path.basename(src_path)
-            shutil.copy2(src_path, os.path.join(outdir, fn))
-            dl.append('<li><a href="%s">下载 %s</a></li>' % (fn, label))
     home = ('<h1>《%s》</h1><p>%s</p>'
             '<p>版本 %s · 构建于 %s · <a href="toc.html">分篇阅读（推荐）</a>'
             ' · <a href="search.html">全书搜索</a></p>'
-            '<ul>%s</ul><hr>%s'
-            % (BOOK_TITLE, BOOK_SUBTITLE, version, built, ''.join(dl), single))
+            '<hr>%s'
+            % (BOOK_TITLE, BOOK_SUBTITLE, version, built, single))
     write(os.path.join(outdir, 'index.html'), page(BOOK_TITLE, home))
 
     # search.html + searchindex.js + search.js + style.css
