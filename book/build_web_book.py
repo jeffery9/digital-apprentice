@@ -311,7 +311,15 @@ ul.toclist a:hover { color:var(--accent); }
 .hit { margin:1rem 0; }
 .hit a { color:var(--accent); font-weight:bold; }
 mark { background:#ffe9a8; }
-@media print { header.topbar,.pagenav { display:none; } }
+/* 防盗版：水印样式 */
+.watermark { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; opacity:0.03; }
+.watermark-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-30deg); font-size:3rem; color:#000; white-space:nowrap; }
+/* 防盗版：打印时显示版权信息 */
+@media print {
+  header.topbar,.pagenav { display:none; }
+  body::before { content:"《数字见习生》版权所有 © jeffery · 未经授权禁止传播"; display:block; text-align:center; padding:1rem; background:#ff0; color:#000; font-weight:bold; }
+  .watermark { opacity:0.08; }
+}
 """
 
 JS_SEARCH = r"""
@@ -361,6 +369,41 @@ JS_SEARCH = r"""
 })();
 """
 
+# 防盗版：水印追踪 + 禁止复制
+JS_ANTITHEFT = r"""
+(function(){
+  // 水印追踪：在页面中嵌入用户标识
+  function addWatermark() {
+    var canvas = document.createElement('canvas');
+    canvas.width = 400; canvas.height = 300;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0.03)';
+    ctx.font = '20px serif';
+    ctx.rotate(-30 * Math.PI / 180);
+    // 水印内容：时间戳 + 随机ID（可追溯）
+    var ts = new Date().toISOString().slice(0,16).replace(/[T:-]/g,'');
+    var rid = Math.random().toString(36).slice(2,8).toUpperCase();
+    var text = '数字见习生·' + ts + '·' + rid;
+    ctx.fillText(text, 50, 150);
+    var div = document.createElement('div');
+    div.className = 'watermark';
+    div.style.backgroundImage = 'url(' + canvas.toDataURL() + ')';
+    div.style.backgroundSize = '400px 300px';
+    document.body.appendChild(div);
+  }
+  // 禁止复制和右键
+  function disableCopy() {
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+    document.addEventListener('copy', function(e) { e.preventDefault(); });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { addWatermark(); disableCopy(); });
+  } else {
+    addWatermark(); disableCopy();
+  }
+})();
+"""
 PAGE_TMPL = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -379,8 +422,9 @@ PAGE_TMPL = """<!DOCTYPE html>
 {body}
 </main>
 <nav class="pagenav">{prevnext}</nav>
-<footer class="pagefoot">《{book}》· {version} · 本页由书稿源文件自动生成（build_web_book.py）· {built}</footer>
+<footer class="pagefoot">《{book}》· 作者 jeffery · {version} · 本页由书稿源文件自动生成（build_web_book.py）· {built}<br><small>版权所有 © jeffery · 未经授权禁止转载、复制或传播</small></footer>
 <script src="search.js"></script>
+<script src="antitheft.js"></script>
 </body>
 </html>
 """
@@ -459,8 +503,14 @@ def main():
     # index.html：单页全书（无下载入口）
     single = '\n'.join(group_body(g) for g in groups)
     home = ('<h1>《%s》</h1><p>%s</p>'
+            '<p>作者：jeffery · 联系：<a href="mailto:jeffery9@gmail.com">jeffery9@gmail.com</a></p>'
             '<p>版本 %s · 构建于 %s · <a href="toc.html">分篇阅读（推荐）</a>'
             ' · <a href="search.html">全书搜索</a></p>'
+            '<p><strong>商务合作</strong>：欢迎 AI Agent 厂商、高校教师、培训机构联系合作</p>'
+            '<div style="background:#fff3cd;border:2px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:8px;">'
+            '<strong>⚠ 版权声明</strong>：本书内容受版权保护，仅限个人学习使用。'
+            '未经授权，禁止以任何形式复制、传播、转载或用于商业用途。'
+            '违者将追究法律责任。商务合作请联系作者邮箱。</div>'
             '<hr>%s'
             % (BOOK_TITLE, BOOK_SUBTITLE, version, built, single))
     write(os.path.join(outdir, 'index.html'), page(BOOK_TITLE, home))
@@ -474,6 +524,7 @@ def main():
     write(os.path.join(outdir, 'searchindex.js'),
           'window.WEBBOOK_INDEX = ' + json.dumps(idx, ensure_ascii=False) + ';')
     write(os.path.join(outdir, 'search.js'), JS_SEARCH)
+    write(os.path.join(outdir, 'antitheft.js'), JS_ANTITHEFT)
     write(os.path.join(outdir, 'style.css'), CSS)
     write(os.path.join(outdir, 'search.html'), page('全书搜索',
           '<h1>全书搜索</h1><div class="searchbox"><p>输入关键词即时检索全书正文（纯前端实现）。</p>'
