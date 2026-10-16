@@ -79,7 +79,7 @@ HTML（分篇阅读 + 单页全书 + 纯前端全文搜索），并把引用的�
 发布步骤：
 1. 提交并推送本仓库到 GitHub；
 2. 仓库 Settings → Pages → Source 选择分支 `main`、目录 `/docs`；
-3. 访问 `https://<用户名>.github.io/<仓库名>/` 即为在线电子书。
+3. 访问 `https://jeffery9.github.io/digital-apprentice/` 即为在线电子书。
 
 改稿后重新运行构建脚本并提交 `docs/` 即可同步更新线上版本。
 
